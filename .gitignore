@@ -1,0 +1,92 @@
+## .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstats
+*.userprefs
+project.nuget.cache
+*.nupkg
+*.snupkg
+*.dbmdl
+*.jfm
+launchSettings.json
+
+## Visual Studio
+.vs/
+
+## Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## Build
+**/publish/
+**/artifacts/
+**/TestResults/
+
+## Environment
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+
+## User Secrets
+**/Properties/serviceDependencies.json
+
+## NuGet
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+## Logs
+**/logs/
+*.log
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Database
+*.db
+*.db-shm
+*.db-wal
+
+## Flutter
+**/.dart_tool/
+**/.packages
+**/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+**/android/.gradle/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+pubspec.lock
+
+## Angular
+**/node_modules/
+**/.angular/
+**/dist/
+**/tmp/
+**/.sass-cache/
+**/out-tsc/
+
+## Android
+**/android/local.properties
+**/android/key.properties
+**/android/*.jks
+**/android/*.keystore
+
+## iOS
+**/ios/Runner.xcworkspace/xcshareddata/
