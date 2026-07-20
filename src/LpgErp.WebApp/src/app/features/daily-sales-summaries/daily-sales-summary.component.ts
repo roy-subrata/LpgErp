@@ -13,9 +13,7 @@ import { DailySalesSummaryFormComponent } from './daily-sales-summary-form.compo
       <h1>Daily Sales Summaries</h1>
       <button class="btn-primary" (click)="onNew()">+ New Summary</button>
     </div>
-    @if (showForm()) {
-      <app-daily-sales-summary-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="onSaved()" />
-    }
+    <app-daily-sales-summary-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="onSaved()" />
     <div class="table-container">
       <table>
         <thead>

@@ -68,6 +68,18 @@ public class CreateVehicleLoadingItemRequest
     public int LoadedQuantity { get; set; }
 }
 
+public class UpdateVehicleLoadingRequest
+{
+    public DateTime LoadingDate { get; set; }
+    public Guid TruckId { get; set; }
+    public Guid DriverId { get; set; }
+    public Guid SalesmanId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? RouteId { get; set; }
+    public string? Notes { get; set; }
+    public List<CreateVehicleLoadingItemRequest> Items { get; set; } = [];
+}
+
 public class VehicleClosingDto : IMapFrom<VehicleClosing>
 {
     public Guid Id { get; set; }

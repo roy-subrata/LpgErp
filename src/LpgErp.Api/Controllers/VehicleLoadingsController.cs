@@ -41,6 +41,14 @@ public class VehicleLoadingsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, ApiResponse<VehicleLoadingDto>.Ok(result.Data!));
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateVehicleLoadingRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _service.UpdateAsync(id, request, cancellationToken);
+        if (!result.IsSuccess) return BadRequest(ApiResponse<VehicleLoadingDto>.Fail(result.Error!));
+        return Ok(ApiResponse<VehicleLoadingDto>.Ok(result.Data!));
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

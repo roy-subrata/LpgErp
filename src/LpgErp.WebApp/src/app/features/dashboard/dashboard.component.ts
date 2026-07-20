@@ -195,7 +195,10 @@ export class DashboardComponent implements OnInit {
     this.loadCount('vehicleloadings', this.vehicleLoadingsCount);
     this.loadCount('payments', this.paymentsCount);
 
-    this.api.get<FinancialReport>('reports/financial').subscribe(data => this.financial.set(data));
+    const today = new Date();
+    const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const to = today.toISOString().split('T')[0];
+    this.api.get<FinancialReport>('reports/financial', { from, to }).subscribe(data => this.financial.set(data));
     this.api.getAll<LowStockAlert>('reports/inventory/low-stock', 1, 100).subscribe(data => this.lowStockAlerts.set(data.items));
   }
 

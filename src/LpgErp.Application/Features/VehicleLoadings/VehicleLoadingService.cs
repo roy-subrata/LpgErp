@@ -13,6 +13,7 @@ public interface IVehicleLoadingService
     Task<Result<PagedResult<VehicleLoadingDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default);
     Task<Result<VehicleLoadingDto>> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Result<VehicleLoadingDto>> CreateAsync(CreateVehicleLoadingRequest request, CancellationToken ct = default);
+    Task<Result<VehicleLoadingDto>> UpdateAsync(Guid id, UpdateVehicleLoadingRequest request, CancellationToken ct = default);
     Task<Result<VehicleClosingDto>> CloseAsync(Guid loadingId, CreateVehicleClosingRequest request, CancellationToken ct = default);
     Task<Result> DeleteAsync(Guid id, CancellationToken ct = default);
 }
@@ -80,6 +81,33 @@ public class VehicleLoadingService : IVehicleLoadingService
         await _context.VehicleLoadings.AddAsync(loading, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         return await GetByIdAsync(loading.Id, ct);
+    }
+
+    public async Task<Result<VehicleLoadingDto>> UpdateAsync(Guid id, UpdateVehicleLoadingRequest request, CancellationToken ct = default)
+    {
+        var loading = await _context.VehicleLoadings
+            .Include(v => v.Items)
+            .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted, ct);
+        if (loading is null) return Result<VehicleLoadingDto>.Failure("Vehicle loading not found.");
+        if (loading.Status != VehicleLoadingStatus.Dispatched) return Result<VehicleLoadingDto>.Failure("Only dispatched vehicle loadings can be edited.");
+
+        loading.LoadingDate = request.LoadingDate;
+        loading.TruckId = request.TruckId;
+        loading.DriverId = request.DriverId;
+        loading.SalesmanId = request.SalesmanId;
+        loading.WarehouseId = request.WarehouseId;
+        loading.RouteId = request.RouteId;
+        loading.Notes = request.Notes;
+
+        _context.VehicleLoadingItems.RemoveRange(loading.Items);
+        loading.Items = request.Items.Select(i => new VehicleLoadingItem
+        {
+            ProductId = i.ProductId,
+            LoadedQuantity = i.LoadedQuantity
+        }).ToList();
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     public async Task<Result<VehicleClosingDto>> CloseAsync(Guid loadingId, CreateVehicleClosingRequest request, CancellationToken ct = default)
