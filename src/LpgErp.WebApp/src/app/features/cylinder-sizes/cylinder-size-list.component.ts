@@ -13,9 +13,7 @@ import { CylinderSizeFormComponent } from './cylinder-size-form.component';
       <h1>Cylinder Sizes</h1>
       <button class="btn-primary" (click)="onNew()">+ New Size</button>
     </div>
-    @if (showForm()) {
-      <app-cylinder-size-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-cylinder-size-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

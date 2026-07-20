@@ -134,8 +134,16 @@ export class SalesOrderFormComponent implements OnChanges {
           this.warehouseId = so.warehouseId ?? '';
           this.isCreditSale = so.isCreditSale ?? false;
           this.notes = so.notes ?? '';
-          this.dueDate = so.dueDate ?? '';
+          this.dueDate = so.dueDate?.split('T')[0] ?? '';
           this.transportCompanyId = so.transportCompanyId ?? '';
+          if (so.items?.length) {
+            this.items = so.items.map((i: any) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              cylinderExchangeQuantity: i.cylinderExchangeQuantity ?? 0,
+            }));
+          }
         });
       }
     }

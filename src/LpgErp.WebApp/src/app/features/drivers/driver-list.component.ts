@@ -13,9 +13,7 @@ import { DriverFormComponent } from './driver-form.component';
       <h1>Drivers</h1>
       <button class="btn-primary" (click)="onNew()">+ New Driver</button>
     </div>
-    @if (showForm()) {
-      <app-driver-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-driver-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

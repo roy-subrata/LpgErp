@@ -13,9 +13,7 @@ import { CustomerNotificationFormComponent } from './customer-notification-form.
       <h1>Customer Notifications</h1>
       <button class="btn-primary" (click)="onNew()">+ New Notification</button>
     </div>
-    @if (showForm()) {
-      <app-customer-notification-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-customer-notification-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

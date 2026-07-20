@@ -13,9 +13,7 @@ import { CylinderDepositFormComponent } from './cylinder-deposit-form.component'
       <h1>Cylinder Deposits</h1>
       <button class="btn-primary" (click)="onNew()">+ New Deposit</button>
     </div>
-    @if (showForm()) {
-      <app-cylinder-deposit-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-cylinder-deposit-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

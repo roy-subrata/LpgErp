@@ -13,9 +13,7 @@ import { TruckFormComponent } from './truck-form.component';
       <h1>Trucks</h1>
       <button class="btn-primary" (click)="onNew()">+ New Truck</button>
     </div>
-    @if (showForm()) {
-      <app-truck-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-truck-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

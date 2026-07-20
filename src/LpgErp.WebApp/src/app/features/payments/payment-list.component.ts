@@ -13,9 +13,7 @@ import { PaymentFormComponent } from './payment-form.component';
       <h1>Payments</h1>
       <button class="btn-primary" (click)="onNew()">+ New Payment</button>
     </div>
-    @if (showForm()) {
-      <app-payment-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-payment-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

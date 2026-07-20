@@ -13,9 +13,7 @@ import { SalesmanFormComponent } from './salesman-form.component';
       <h1>Salesmen</h1>
       <button class="btn-primary" (click)="onNew()">+ New Salesman</button>
     </div>
-    @if (showForm()) {
-      <app-salesman-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-salesman-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

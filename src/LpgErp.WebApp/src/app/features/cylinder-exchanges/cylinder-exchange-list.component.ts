@@ -13,9 +13,7 @@ import { CylinderExchangeFormComponent } from './cylinder-exchange-form.componen
       <h1>Cylinder Exchanges</h1>
       <button class="btn-primary" (click)="onNew()">+ New Exchange</button>
     </div>
-    @if (showForm()) {
-      <app-cylinder-exchange-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-cylinder-exchange-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

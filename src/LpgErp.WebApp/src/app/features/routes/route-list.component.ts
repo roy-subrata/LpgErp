@@ -13,9 +13,7 @@ import { RouteFormComponent } from './route-form.component';
       <h1>Routes</h1>
       <button class="btn-primary" (click)="onNew()">+ New Route</button>
     </div>
-    @if (showForm()) {
-      <app-route-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-route-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>

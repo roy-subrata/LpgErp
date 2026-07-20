@@ -131,11 +131,18 @@ export class PurchaseOrderFormComponent implements OnChanges {
         this.api.getById<any>('purchaseorders', this.entityId).subscribe(po => {
           this.supplierId = po.supplierId ?? '';
           this.warehouseId = po.warehouseId ?? '';
-          this.expectedDeliveryDate = po.expectedDeliveryDate ?? '';
+          this.expectedDeliveryDate = po.expectedDeliveryDate?.split('T')[0] ?? '';
           this.notes = po.notes ?? '';
           this.transportCompanyId = po.transportCompanyId ?? '';
           this.transportationCost = po.transportationCost ?? 0;
-          this.dueDate = po.dueDate ?? '';
+          this.dueDate = po.dueDate?.split('T')[0] ?? '';
+          if (po.items?.length) {
+            this.items = po.items.map((i: any) => ({
+              productId: i.productId,
+              orderedQuantity: i.orderedQuantity,
+              unitPrice: i.unitPrice,
+            }));
+          }
         });
       }
     }

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject, effect } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, SimpleChanges, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
@@ -53,7 +53,7 @@ import { ApiService } from '../../core/api.service';
     .btn-secondary { background: white; color: #333; }
   `],
 })
-export class RouteFormComponent {
+export class RouteFormComponent implements OnChanges {
   private api = inject(ApiService);
 
   @Input() open = false;
@@ -69,19 +69,14 @@ export class RouteFormComponent {
   isActive = true;
   saving = false;
 
-  private prevOpen = false;
-
-  constructor() {
-    effect(() => {
-      if (this.open && !this.prevOpen) {
-        if (this.entityId) {
-          this.loadEntity();
-        } else {
-          this.resetForm();
-        }
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['open'] && this.open) {
+      if (this.entityId) {
+        this.loadEntity();
+      } else {
+        this.resetForm();
       }
-      this.prevOpen = this.open;
-    });
+    }
   }
 
   private loadEntity() {

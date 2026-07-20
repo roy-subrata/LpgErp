@@ -13,9 +13,7 @@ import { DriverSettlementFormComponent } from './driver-settlement-form.componen
       <h1>Driver Settlements</h1>
       <button class="btn-primary" (click)="onNew()">+ New Settlement</button>
     </div>
-    @if (showForm()) {
-      <app-driver-settlement-form [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    }
+    <app-driver-settlement-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
         <thead>
