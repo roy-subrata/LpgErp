@@ -23,6 +23,18 @@ public interface IApplicationDbContext
     DbSet<Truck> Trucks { get; }
     DbSet<Driver> Drivers { get; }
     DbSet<Salesman> Salesmen { get; }
+    DbSet<Route> Routes { get; }
+    DbSet<VehicleLoading> VehicleLoadings { get; }
+    DbSet<VehicleLoadingItem> VehicleLoadingItems { get; }
+    DbSet<VehicleClosing> VehicleClosings { get; }
+    DbSet<VehicleClosingItem> VehicleClosingItems { get; }
+    DbSet<DailySalesSummary> DailySalesSummaries { get; }
+    DbSet<DriverSettlement> DriverSettlements { get; }
+    DbSet<SalesmanSettlement> SalesmanSettlements { get; }
+    DbSet<CylinderDeposit> CylinderDeposits { get; }
+    DbSet<CylinderExchange> CylinderExchanges { get; }
+    DbSet<CustomerNotification> CustomerNotifications { get; }
+    DbSet<TransportCompany> TransportCompanies { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

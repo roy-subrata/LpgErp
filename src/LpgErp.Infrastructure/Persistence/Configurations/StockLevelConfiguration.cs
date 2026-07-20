@@ -10,8 +10,8 @@ public class StockLevelConfiguration : IEntityTypeConfiguration<StockLevel>
     {
         builder.ToTable("StockLevels");
         builder.HasKey(s => s.Id);
-        builder.HasOne(s => s.Warehouse).WithMany().HasForeignKey(s => s.WarehouseId);
-        builder.HasOne(s => s.Product).WithMany().HasForeignKey(s => s.ProductId);
+        builder.HasOne(s => s.Warehouse).WithMany().HasForeignKey(s => s.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.Product).WithMany().HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(s => new { s.WarehouseId, s.ProductId }).IsUnique();
     }
 }

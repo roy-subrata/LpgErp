@@ -12,8 +12,8 @@ public class CylinderConfiguration : IEntityTypeConfiguration<Cylinder>
         builder.HasKey(c => c.Id);
         builder.Property(c => c.SerialNumber).HasMaxLength(100).IsRequired();
         builder.HasIndex(c => c.SerialNumber).IsUnique();
-        builder.HasOne(c => c.Brand).WithMany().HasForeignKey(c => c.BrandId);
-        builder.HasOne(c => c.CylinderSize).WithMany().HasForeignKey(c => c.CylinderSizeId);
-        builder.HasOne(c => c.CurrentWarehouse).WithMany().HasForeignKey(c => c.CurrentWarehouseId);
+        builder.HasOne(c => c.Brand).WithMany().HasForeignKey(c => c.BrandId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(c => c.CylinderSize).WithMany().HasForeignKey(c => c.CylinderSizeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(c => c.CurrentWarehouse).WithMany().HasForeignKey(c => c.CurrentWarehouseId).OnDelete(DeleteBehavior.Restrict);
     }
 }

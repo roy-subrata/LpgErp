@@ -1,22 +1,17 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-interface Warehouse {
-  id: string;
-  name: string;
-  code: string;
-  address: string;
-  isActive: boolean;
-}
+import { ApiService } from '../../core/api.service';
+import { Warehouse } from '../../core/models';
+import { WarehouseFormComponent } from './warehouse-form.component';
 
 @Component({
   selector: 'app-warehouse-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, WarehouseFormComponent],
   template: `
     <div class="page-header">
       <h1>Warehouses</h1>
-      <button class="btn-primary">+ New Warehouse</button>
+      <button class="btn-primary" (click)="openCreate()">+ New Warehouse</button>
     </div>
     <div class="table-container">
       <table>
@@ -37,8 +32,8 @@ interface Warehouse {
               <td>{{ warehouse.address }}</td>
               <td>{{ warehouse.isActive ? 'Active' : 'Inactive' }}</td>
               <td>
-                <button class="btn-sm">Edit</button>
-                <button class="btn-sm btn-danger">Delete</button>
+                <button class="btn-sm" (click)="openEdit(warehouse.id)">Edit</button>
+                <button class="btn-sm btn-danger" (click)="onDelete(warehouse.id)">Delete</button>
               </td>
             </tr>
           } @empty {
@@ -49,6 +44,7 @@ interface Warehouse {
         </tbody>
       </table>
     </div>
+    <app-warehouse-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
   `,
   styles: [`
     .page-header {
@@ -98,9 +94,32 @@ interface Warehouse {
   `],
 })
 export class WarehouseListComponent implements OnInit {
+  private api = inject(ApiService);
   warehouses = signal<Warehouse[]>([]);
+  showForm = signal(false);
+  editingId = signal<string | null>(null);
 
   ngOnInit() {
-    // TODO: Load from API
+    this.loadData();
+  }
+
+  loadData() {
+    this.api.getAllList<Warehouse>('warehouses').subscribe(data => this.warehouses.set(data));
+  }
+
+  openCreate() {
+    this.editingId.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(id: string) {
+    this.editingId.set(id);
+    this.showForm.set(true);
+  }
+
+  onDelete(id: string) {
+    if (confirm('Are you sure?')) {
+      this.api.delete('warehouses', id).subscribe(() => this.loadData());
+    }
   }
 }

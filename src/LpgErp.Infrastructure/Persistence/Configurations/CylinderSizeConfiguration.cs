@@ -13,6 +13,6 @@ public class CylinderSizeConfiguration : IEntityTypeConfiguration<CylinderSize>
         builder.Property(c => c.Name).HasMaxLength(100).IsRequired();
         builder.Property(c => c.WeightKg).HasPrecision(10, 2);
         builder.Property(c => c.DepositAmount).HasPrecision(18, 2);
-        builder.HasOne(c => c.Brand).WithMany(b => b.CylinderSizes).HasForeignKey(c => c.BrandId);
+        builder.HasOne(c => c.Brand).WithMany(b => b.CylinderSizes).HasForeignKey(c => c.BrandId).OnDelete(DeleteBehavior.Restrict);
     }
 }

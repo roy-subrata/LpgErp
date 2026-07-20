@@ -1,21 +1,17 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-interface Brand {
-  id: string;
-  name: string;
-  code: string;
-  isActive: boolean;
-}
+import { ApiService } from '../../core/api.service';
+import { Brand } from '../../core/models';
+import { BrandFormComponent } from './brand-form.component';
 
 @Component({
   selector: 'app-brand-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, BrandFormComponent],
   template: `
     <div class="page-header">
       <h1>Brands</h1>
-      <button class="btn-primary">+ New Brand</button>
+      <button class="btn-primary" (click)="openCreate()">+ New Brand</button>
     </div>
     <div class="table-container">
       <table>
@@ -34,8 +30,8 @@ interface Brand {
               <td>{{ brand.code }}</td>
               <td>{{ brand.isActive ? 'Active' : 'Inactive' }}</td>
               <td>
-                <button class="btn-sm">Edit</button>
-                <button class="btn-sm btn-danger">Delete</button>
+                <button class="btn-sm" (click)="openEdit(brand.id)">Edit</button>
+                <button class="btn-sm btn-danger" (click)="onDelete(brand.id)">Delete</button>
               </td>
             </tr>
           } @empty {
@@ -46,6 +42,7 @@ interface Brand {
         </tbody>
       </table>
     </div>
+    <app-brand-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
   `,
   styles: [`
     .page-header {
@@ -95,9 +92,32 @@ interface Brand {
   `],
 })
 export class BrandListComponent implements OnInit {
+  private api = inject(ApiService);
   brands = signal<Brand[]>([]);
+  showForm = signal(false);
+  editingId = signal<string | null>(null);
 
   ngOnInit() {
-    // TODO: Load from API
+    this.loadData();
+  }
+
+  loadData() {
+    this.api.getAllList<Brand>('brands').subscribe(data => this.brands.set(data));
+  }
+
+  openCreate() {
+    this.editingId.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(id: string) {
+    this.editingId.set(id);
+    this.showForm.set(true);
+  }
+
+  onDelete(id: string) {
+    if (confirm('Are you sure?')) {
+      this.api.delete('brands', id).subscribe(() => this.loadData());
+    }
   }
 }

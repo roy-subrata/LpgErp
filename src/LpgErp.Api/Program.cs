@@ -1,4 +1,8 @@
+using LpgErp.Api.Middleware;
 using LpgErp.Infrastructure;
+using LpgErp.Infrastructure.Persistence;
+using LpgErp.Application;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,8 +33,24 @@ try
     });
 
     builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddApplication();
 
     var app = builder.Build();
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<LpgErpDbContext>();
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not apply database migrations");
+        }
+    }
+
+    app.UseMiddleware<ExceptionHandlingMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {

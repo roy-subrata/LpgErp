@@ -11,7 +11,7 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
         builder.ToTable("PurchaseOrderItems");
         builder.HasKey(p => p.Id);
         builder.Property(p => p.UnitPrice).HasPrecision(18, 2);
-        builder.HasOne(p => p.PurchaseOrder).WithMany(po => po.Items).HasForeignKey(p => p.PurchaseOrderId);
-        builder.HasOne(p => p.Product).WithMany().HasForeignKey(p => p.ProductId);
+        builder.HasOne(p => p.PurchaseOrder).WithMany(po => po.Items).HasForeignKey(p => p.PurchaseOrderId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(p => p.Product).WithMany().HasForeignKey(p => p.ProductId).OnDelete(DeleteBehavior.Restrict);
     }
 }

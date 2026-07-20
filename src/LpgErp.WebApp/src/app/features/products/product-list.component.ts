@@ -1,25 +1,17 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-interface Product {
-  id: string;
-  name: string;
-  code: string;
-  type: string;
-  purchasePrice: number;
-  salePrice: number;
-  currentStock: number;
-  isActive: boolean;
-}
+import { ApiService } from '../../core/api.service';
+import { Product } from '../../core/models';
+import { ProductFormComponent } from './product-form.component';
 
 @Component({
   selector: 'app-product-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ProductFormComponent],
   template: `
     <div class="page-header">
       <h1>Products</h1>
-      <button class="btn-primary">+ New Product</button>
+      <button class="btn-primary" (click)="openCreate()">+ New Product</button>
     </div>
     <div class="table-container">
       <table>
@@ -46,8 +38,8 @@ interface Product {
               <td>{{ product.currentStock }}</td>
               <td>{{ product.isActive ? 'Active' : 'Inactive' }}</td>
               <td>
-                <button class="btn-sm">Edit</button>
-                <button class="btn-sm btn-danger">Delete</button>
+                <button class="btn-sm" (click)="openEdit(product.id)">Edit</button>
+                <button class="btn-sm btn-danger" (click)="onDelete(product.id)">Delete</button>
               </td>
             </tr>
           } @empty {
@@ -58,6 +50,7 @@ interface Product {
         </tbody>
       </table>
     </div>
+    <app-product-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
   `,
   styles: [`
     .page-header {
@@ -107,9 +100,32 @@ interface Product {
   `],
 })
 export class ProductListComponent implements OnInit {
+  private api = inject(ApiService);
   products = signal<Product[]>([]);
+  showForm = signal(false);
+  editingId = signal<string | null>(null);
 
   ngOnInit() {
-    // TODO: Load from API
+    this.loadData();
+  }
+
+  loadData() {
+    this.api.getAllList<Product>('products').subscribe(data => this.products.set(data));
+  }
+
+  openCreate() {
+    this.editingId.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(id: string) {
+    this.editingId.set(id);
+    this.showForm.set(true);
+  }
+
+  onDelete(id: string) {
+    if (confirm('Are you sure?')) {
+      this.api.delete('products', id).subscribe(() => this.loadData());
+    }
   }
 }

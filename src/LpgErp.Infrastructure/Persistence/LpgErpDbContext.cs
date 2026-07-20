@@ -35,6 +35,18 @@ public class LpgErpDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<Truck> Trucks => Set<Truck>();
     public DbSet<Driver> Drivers => Set<Driver>();
     public DbSet<Salesman> Salesmen => Set<Salesman>();
+    public DbSet<Route> Routes => Set<Route>();
+    public DbSet<VehicleLoading> VehicleLoadings => Set<VehicleLoading>();
+    public DbSet<VehicleLoadingItem> VehicleLoadingItems => Set<VehicleLoadingItem>();
+    public DbSet<VehicleClosing> VehicleClosings => Set<VehicleClosing>();
+    public DbSet<VehicleClosingItem> VehicleClosingItems => Set<VehicleClosingItem>();
+    public DbSet<DailySalesSummary> DailySalesSummaries => Set<DailySalesSummary>();
+    public DbSet<DriverSettlement> DriverSettlements => Set<DriverSettlement>();
+    public DbSet<SalesmanSettlement> SalesmanSettlements => Set<SalesmanSettlement>();
+    public DbSet<CylinderDeposit> CylinderDeposits => Set<CylinderDeposit>();
+    public DbSet<CylinderExchange> CylinderExchanges => Set<CylinderExchange>();
+    public DbSet<CustomerNotification> CustomerNotifications => Set<CustomerNotification>();
+    public DbSet<TransportCompany> TransportCompanies => Set<TransportCompany>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

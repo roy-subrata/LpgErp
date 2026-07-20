@@ -1,5 +1,16 @@
 namespace LpgErp.Application.Common.Models;
 
+public class Result
+{
+    public bool IsSuccess { get; private set; }
+    public string? Error { get; private set; }
+    public List<string> Errors { get; private set; } = [];
+
+    public static Result Success() => new() { IsSuccess = true };
+    public static Result Failure(string error) => new() { IsSuccess = false, Error = error };
+    public static Result Failure(List<string> errors) => new() { IsSuccess = false, Errors = errors };
+}
+
 public class Result<T>
 {
     public bool IsSuccess { get; private set; }

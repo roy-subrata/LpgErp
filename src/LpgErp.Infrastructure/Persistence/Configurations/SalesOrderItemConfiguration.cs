@@ -11,7 +11,7 @@ public class SalesOrderItemConfiguration : IEntityTypeConfiguration<SalesOrderIt
         builder.ToTable("SalesOrderItems");
         builder.HasKey(s => s.Id);
         builder.Property(s => s.UnitPrice).HasPrecision(18, 2);
-        builder.HasOne(s => s.SalesOrder).WithMany(so => so.Items).HasForeignKey(s => s.SalesOrderId);
-        builder.HasOne(s => s.Product).WithMany().HasForeignKey(s => s.ProductId);
+        builder.HasOne(s => s.SalesOrder).WithMany(so => so.Items).HasForeignKey(s => s.SalesOrderId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.Product).WithMany().HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.Restrict);
     }
 }

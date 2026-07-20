@@ -13,8 +13,10 @@ public class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrder>
         builder.Property(s => s.OrderNumber).HasMaxLength(50).IsRequired();
         builder.Property(s => s.TotalAmount).HasPrecision(18, 2);
         builder.Property(s => s.Discount).HasPrecision(18, 2);
-        builder.HasOne(s => s.Customer).WithMany().HasForeignKey(s => s.CustomerId);
-        builder.HasOne(s => s.Warehouse).WithMany().HasForeignKey(s => s.WarehouseId);
+        builder.HasOne(s => s.Customer).WithMany().HasForeignKey(s => s.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.Warehouse).WithMany().HasForeignKey(s => s.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.Route).WithMany().HasForeignKey(s => s.RouteId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.TransportCompany).WithMany().HasForeignKey(s => s.TransportCompanyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(s => s.OrderNumber).IsUnique();
     }
 }

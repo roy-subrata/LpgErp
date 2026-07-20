@@ -22,6 +22,15 @@ public class SalesOrder : BaseEntity
     public DateTime OrderDate { get; set; }
     public string? Notes { get; set; }
     public bool IsCreditSale { get; set; }
+    public DateTime? DueDate { get; set; }
+    public DateTime? VisitTime { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public Guid? TransportCompanyId { get; set; }
+    public TransportCompany? TransportCompany { get; set; }
+
+    public Guid? RouteId { get; set; }
+    public Route? Route { get; set; }
 
     public ICollection<SalesOrderItem> Items { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];

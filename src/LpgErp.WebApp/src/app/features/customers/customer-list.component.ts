@@ -1,24 +1,17 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-interface Customer {
-  id: string;
-  name: string;
-  code: string;
-  type: string;
-  phone: string;
-  creditLimit: number;
-  isActive: boolean;
-}
+import { ApiService } from '../../core/api.service';
+import { Customer } from '../../core/models';
+import { CustomerFormComponent } from './customer-form.component';
 
 @Component({
   selector: 'app-customer-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CustomerFormComponent],
   template: `
     <div class="page-header">
       <h1>Customers</h1>
-      <button class="btn-primary">+ New Customer</button>
+      <button class="btn-primary" (click)="openCreate()">+ New Customer</button>
     </div>
     <div class="table-container">
       <table>
@@ -43,8 +36,8 @@ interface Customer {
               <td>{{ customer.creditLimit | currency }}</td>
               <td>{{ customer.isActive ? 'Active' : 'Inactive' }}</td>
               <td>
-                <button class="btn-sm">Edit</button>
-                <button class="btn-sm btn-danger">Delete</button>
+                <button class="btn-sm" (click)="openEdit(customer.id)">Edit</button>
+                <button class="btn-sm btn-danger" (click)="onDelete(customer.id)">Delete</button>
               </td>
             </tr>
           } @empty {
@@ -55,6 +48,7 @@ interface Customer {
         </tbody>
       </table>
     </div>
+    <app-customer-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
   `,
   styles: [`
     .page-header {
@@ -104,9 +98,32 @@ interface Customer {
   `],
 })
 export class CustomerListComponent implements OnInit {
+  private api = inject(ApiService);
   customers = signal<Customer[]>([]);
+  showForm = signal(false);
+  editingId = signal<string | null>(null);
 
   ngOnInit() {
-    // TODO: Load from API
+    this.loadData();
+  }
+
+  loadData() {
+    this.api.getAllList<Customer>('customers').subscribe(data => this.customers.set(data));
+  }
+
+  openCreate() {
+    this.editingId.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(id: string) {
+    this.editingId.set(id);
+    this.showForm.set(true);
+  }
+
+  onDelete(id: string) {
+    if (confirm('Are you sure?')) {
+      this.api.delete('customers', id).subscribe(() => this.loadData());
+    }
   }
 }

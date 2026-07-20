@@ -20,5 +20,6 @@ public class Customer : BaseEntity
     public string? Email { get; set; }
     public string? Address { get; set; }
     public decimal CreditLimit { get; set; }
+    public int PaymentDueDays { get; set; } = 30;
     public bool IsActive { get; set; } = true;
 }

@@ -24,6 +24,10 @@ public class PurchaseOrder : BaseEntity
     public DateTime? ExpectedDeliveryDate { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public string? Notes { get; set; }
+    public Guid? TransportCompanyId { get; set; }
+    public TransportCompany? TransportCompany { get; set; }
+    public decimal TransportationCost { get; set; }
+    public DateTime? DueDate { get; set; }
 
     public ICollection<PurchaseOrderItem> Items { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
