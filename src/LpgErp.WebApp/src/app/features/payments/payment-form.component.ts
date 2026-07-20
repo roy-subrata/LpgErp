@@ -33,18 +33,17 @@ import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
         <div class="form-group">
           <label for="method">Method</label>
           <select id="method" [(ngModel)]="method" name="method" required>
-            <option [value]="0">Cash</option>
-            <option [value]="1">Bank Transfer</option>
-            <option [value]="2">Check</option>
-            <option [value]="3">Mobile Payment</option>
-            <option [value]="4">Credit</option>
+            <option [ngValue]="0">Cash</option>
+            <option [ngValue]="1">Credit</option>
+            <option [ngValue]="2">Bank Transfer</option>
+            <option [ngValue]="3">Mobile Banking</option>
           </select>
         </div>
         <div class="form-group">
           <label for="direction">Direction</label>
           <select id="direction" [(ngModel)]="direction" name="direction" required>
-            <option [value]="0">Inbound (Receive)</option>
-            <option [value]="1">Outbound (Pay)</option>
+            <option [ngValue]="0">Inbound (Receive)</option>
+            <option [ngValue]="1">Outbound (Pay)</option>
           </select>
         </div>
         <div class="form-group">
@@ -126,8 +125,8 @@ export class PaymentFormComponent implements OnChanges {
     const body = {
       salesOrderId: this.salesOrderId || null,
       purchaseOrderId: this.purchaseOrderId || null,
-      method: this.method,
-      direction: this.direction,
+      method: Number(this.method),
+      direction: Number(this.direction),
       amount: this.amount,
       paymentDate: this.paymentDate,
       reference: this.reference,

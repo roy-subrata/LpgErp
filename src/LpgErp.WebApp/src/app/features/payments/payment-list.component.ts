@@ -98,7 +98,7 @@ export class PaymentListComponent implements OnInit {
   }
 
   paymentMethod(method: number): string {
-    const map: Record<number, string> = { 0: 'Cash', 1: 'BankTransfer', 2: 'Check', 3: 'MobilePayment', 4: 'Credit' };
+    const map: Record<number, string> = { 0: 'Cash', 1: 'Credit', 2: 'Bank Transfer', 3: 'Mobile Banking' };
     return map[method] ?? 'Unknown';
   }
 }

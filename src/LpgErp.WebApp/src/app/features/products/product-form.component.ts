@@ -23,10 +23,10 @@ import { Product, Brand, CylinderSize } from '../../core/models';
         <div class="form-group">
           <label for="type">Type</label>
           <select id="type" [(ngModel)]="type" name="type">
-            <option [value]="0">Empty Cylinder</option>
-            <option [value]="1">Gas Refill</option>
-            <option [value]="2">New Package</option>
-            <option [value]="3">Accessory</option>
+            <option [ngValue]="0">Empty Cylinder</option>
+            <option [ngValue]="1">Gas Refill</option>
+            <option [ngValue]="2">New Package</option>
+            <option [ngValue]="3">Accessory</option>
           </select>
         </div>
         <div class="form-group">
@@ -136,7 +136,7 @@ export class ProductFormComponent implements OnChanges {
     const body = {
       name: this.name,
       code: this.code,
-      type: this.type,
+      type: Number(this.type),
       brandId: this.brandId,
       cylinderSizeId: this.cylinderSizeId,
       purchasePrice: this.purchasePrice,

@@ -24,11 +24,11 @@ import { Customer, CustomerNotification } from '../../core/models';
         <div class="form-group">
           <label for="type">Type</label>
           <select id="type" [(ngModel)]="type" name="type" required>
-            <option [value]="0">Payment Due</option>
-            <option [value]="1">Possible Refill Time</option>
-            <option [value]="2">Cylinder Return Reminder</option>
-            <option [value]="3">Outstanding Empty Cylinder</option>
-            <option [value]="4">Credit Limit Exceeded</option>
+            <option [ngValue]="0">Payment Due</option>
+            <option [ngValue]="1">Possible Refill Time</option>
+            <option [ngValue]="2">Cylinder Return Reminder</option>
+            <option [ngValue]="3">Outstanding Empty Cylinder</option>
+            <option [ngValue]="4">Credit Limit Exceeded</option>
           </select>
         </div>
         <div class="form-group">
@@ -99,10 +99,9 @@ export class CustomerNotificationFormComponent implements OnChanges {
     this.saving.set(true);
     const body = {
       customerId: this.customerId,
-      type: this.type,
+      type: Number(this.type),
       title: this.title,
       message: this.message,
-      isRead: this.isRead,
     };
 
     const req$ = this.entityId

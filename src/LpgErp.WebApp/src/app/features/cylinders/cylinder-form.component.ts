@@ -46,11 +46,11 @@ import { Brand, CylinderSize, Warehouse } from '../../core/models';
         <div class="form-group">
           <label>Status</label>
           <select [(ngModel)]="status" name="status">
-            <option [value]="0">Available</option>
-            <option [value]="1">With Customer</option>
-            <option [value]="2">In Transit</option>
-            <option [value]="3">Damaged</option>
-            <option [value]="4">Under Maintenance</option>
+            <option [ngValue]="0">Available</option>
+            <option [ngValue]="1">With Customer</option>
+            <option [ngValue]="2">In Transit</option>
+            <option [ngValue]="3">Damaged</option>
+            <option [ngValue]="4">Under Maintenance</option>
           </select>
         </div>
         <div class="form-group">

@@ -23,12 +23,12 @@ import { Customer } from '../../core/models';
         <div class="form-group">
           <label for="type">Type</label>
           <select id="type" [(ngModel)]="type" name="type">
-            <option [value]="0">Retail</option>
-            <option [value]="1">Wholesale</option>
-            <option [value]="2">Commercial</option>
-            <option [value]="3">Restaurant</option>
-            <option [value]="4">Hotel</option>
-            <option [value]="5">Industrial</option>
+            <option [ngValue]="0">Retail</option>
+            <option [ngValue]="1">Wholesale</option>
+            <option [ngValue]="2">Commercial</option>
+            <option [ngValue]="3">Restaurant</option>
+            <option [ngValue]="4">Hotel</option>
+            <option [ngValue]="5">Industrial</option>
           </select>
         </div>
         <div class="form-group">
@@ -125,7 +125,7 @@ export class CustomerFormComponent implements OnChanges {
     const body = {
       name: this.name,
       code: this.code,
-      type: this.type,
+      type: Number(this.type),
       contactPerson: this.contactPerson,
       phone: this.phone,
       email: this.email,

@@ -76,6 +76,7 @@ public class PaymentService : IPaymentService
         entity.Amount = request.Amount;
         entity.PaymentDate = request.PaymentDate;
         entity.Method = request.Method;
+        entity.Direction = request.Direction;
         entity.Reference = request.Reference;
         entity.Notes = request.Notes;
         entity.SalesOrderId = request.SalesOrderId;

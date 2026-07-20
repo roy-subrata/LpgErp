@@ -33,9 +33,9 @@ import { Customer, CylinderSize, CylinderDeposit } from '../../core/models';
         <div class="form-group">
           <label for="type">Type</label>
           <select id="type" [(ngModel)]="type" name="type" required>
-            <option [value]="0">Paid</option>
-            <option [value]="1">Returned</option>
-            <option [value]="2">Refund</option>
+            <option [ngValue]="0">Paid</option>
+            <option [ngValue]="1">Returned</option>
+            <option [ngValue]="2">Refund</option>
           </select>
         </div>
         <div class="form-group">
@@ -115,7 +115,7 @@ export class CylinderDepositFormComponent implements OnChanges {
     const body = {
       customerId: this.customerId,
       cylinderSizeId: this.cylinderSizeId,
-      type: this.type,
+      type: Number(this.type),
       amount: this.amount,
       quantity: this.quantity,
       reference: this.reference,
