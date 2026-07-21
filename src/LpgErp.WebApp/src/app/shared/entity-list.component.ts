@@ -148,7 +148,7 @@ export interface EntityConfig {
       [title]="drawerTitle()"
       [subtitle]="drawerSubtitle()"
       [mode]="drawerMode()"
-      [fields]="config.fields"
+      [fields]="enrichedFields()"
       [entity]="currentEntity()"
       [saving]="saving()"
       (closeDrawer)="closeDrawer()"
@@ -445,8 +445,19 @@ export class EntityListComponent implements OnInit {
   drawerMode = signal<'view' | 'edit' | 'new'>('new');
   currentEntity = signal<any>(null);
   saving = signal(false);
+  selectOptions = signal<Record<string, { label: string; value: any }[]>>({});
 
   Math = Math;
+
+  enrichedFields = computed(() => {
+    const opts = this.selectOptions();
+    return this.config.fields.map(f => {
+      if (f.type === 'select' && !f.options && f.endpoint) {
+        return { ...f, options: opts[f.endpoint] || [] };
+      }
+      return f;
+    });
+  });
 
   filteredItems = computed(() => {
     let list = this.items();
@@ -500,12 +511,30 @@ export class EntityListComponent implements OnInit {
 
   ngOnInit() {
     this.load();
+    this.loadSelectOptions();
   }
 
   load() {
     this.api.getAllList<any>(this.config.endpoint).subscribe(data => {
       this.items.set(data);
     });
+  }
+
+  private loadSelectOptions() {
+    const endpoints = new Map<string, string>();
+    for (const f of this.config.fields) {
+      if (f.type === 'select' && !f.options && f.endpoint) {
+        endpoints.set(f.endpoint, f.optionLabel || 'name');
+      }
+    }
+    for (const [endpoint, labelKey] of endpoints) {
+      this.api.getAllList<any>(endpoint).subscribe(data => {
+        this.selectOptions.update(opts => ({
+          ...opts,
+          [endpoint]: data.map(item => ({ label: item[labelKey] ?? item.name ?? item.id, value: item.id })),
+        }));
+      });
+    }
   }
 
   getDisplayText(col: TableColumn, item: any): string {

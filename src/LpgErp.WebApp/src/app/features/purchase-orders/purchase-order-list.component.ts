@@ -33,8 +33,8 @@ export class PurchaseOrderListComponent {
       },
     ],
     fields: [
-      { key: 'supplierId', label: 'Supplier', type: 'select' },
-      { key: 'warehouseId', label: 'Warehouse', type: 'select' },
+      { key: 'supplierId', label: 'Supplier', type: 'select', endpoint: 'suppliers', optionLabel: 'name' },
+      { key: 'warehouseId', label: 'Warehouse', type: 'select', endpoint: 'warehouses', optionLabel: 'name' },
       { key: 'orderDate', label: 'Order Date', type: 'date' },
       { key: 'expectedDeliveryDate', label: 'Expected Delivery Date', type: 'date' },
       { key: 'notes', label: 'Notes', type: 'textarea' },

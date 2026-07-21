@@ -21,8 +21,8 @@ export class DriverSettlementListComponent {
       { key: 'netSettlement', label: 'Net Settlement', kind: 'money' },
     ],
     fields: [
-      { key: 'driverId', label: 'Driver', type: 'select' },
-      { key: 'vehicleLoadingId', label: 'Vehicle Loading', type: 'select' },
+      { key: 'driverId', label: 'Driver', type: 'select', endpoint: 'drivers', optionLabel: 'name' },
+      { key: 'vehicleLoadingId', label: 'Vehicle Loading', type: 'select', endpoint: 'vehicleloadings', optionLabel: 'truckName' },
       { key: 'settlementDate', label: 'Settlement Date', type: 'date' },
       { key: 'tripCount', label: 'Trip Count', type: 'number' },
       { key: 'fuelCost', label: 'Fuel Cost', type: 'number' },

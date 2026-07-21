@@ -21,7 +21,7 @@ export class CylinderSizeListComponent {
     ],
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'brandId', label: 'Brand', type: 'select' },
+      { key: 'brandId', label: 'Brand', type: 'select', endpoint: 'brands', optionLabel: 'name' },
       { key: 'weightKg', label: 'Weight (kg)', type: 'number' },
       { key: 'depositAmount', label: 'Deposit Amount', type: 'number' },
       { key: 'isActive', label: 'Active', type: 'toggle' },

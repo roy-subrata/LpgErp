@@ -31,8 +31,8 @@ export class CylinderDepositListComponent {
       { key: 'reference', label: 'Reference', kind: 'mono' },
     ],
     fields: [
-      { key: 'customerId', label: 'Customer', type: 'select' },
-      { key: 'cylinderSizeId', label: 'Cylinder Size', type: 'select' },
+      { key: 'customerId', label: 'Customer', type: 'select', endpoint: 'customers', optionLabel: 'name' },
+      { key: 'cylinderSizeId', label: 'Cylinder Size', type: 'select', endpoint: 'cylindersizes', optionLabel: 'name' },
       { key: 'type', label: 'Type', type: 'select', options: [{ label: 'Deposit', value: 0 }, { label: 'Refund', value: 1 }] },
       { key: 'amount', label: 'Amount', type: 'number' },
       { key: 'quantity', label: 'Quantity', type: 'number' },

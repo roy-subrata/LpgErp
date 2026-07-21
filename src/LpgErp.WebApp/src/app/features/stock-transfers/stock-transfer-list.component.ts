@@ -22,9 +22,9 @@ export class StockTransferListComponent {
       { key: 'movementDate', label: 'Date', kind: 'date' },
     ],
     fields: [
-      { key: 'productId', label: 'Product', type: 'select' },
-      { key: 'fromWarehouseId', label: 'From Warehouse', type: 'select' },
-      { key: 'toWarehouseId', label: 'To Warehouse', type: 'select' },
+      { key: 'productId', label: 'Product', type: 'select', endpoint: 'products', optionLabel: 'name' },
+      { key: 'fromWarehouseId', label: 'From Warehouse', type: 'select', endpoint: 'warehouses', optionLabel: 'name' },
+      { key: 'toWarehouseId', label: 'To Warehouse', type: 'select', endpoint: 'warehouses', optionLabel: 'name' },
       { key: 'quantity', label: 'Quantity', type: 'number', required: true },
       { key: 'reference', label: 'Reference', type: 'text' },
     ],

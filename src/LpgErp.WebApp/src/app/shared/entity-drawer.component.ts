@@ -7,6 +7,8 @@ export interface DrawerField {
   label: string;
   type?: 'text' | 'number' | 'select' | 'toggle' | 'date' | 'textarea';
   options?: { label: string; value: any }[];
+  endpoint?: string;
+  optionLabel?: string;
   placeholder?: string;
   mono?: boolean;
   required?: boolean;

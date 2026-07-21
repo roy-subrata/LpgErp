@@ -24,7 +24,7 @@ export class DailySalesSummaryComponent {
       { key: 'refillsSold', label: 'Refills', kind: 'num' },
     ],
     fields: [
-      { key: 'vehicleLoadingId', label: 'Vehicle Loading', type: 'select' },
+      { key: 'vehicleLoadingId', label: 'Vehicle Loading', type: 'select', endpoint: 'vehicleloadings', optionLabel: 'truckName' },
       { key: 'summaryDate', label: 'Summary Date', type: 'date' },
       { key: 'notes', label: 'Notes', type: 'textarea' },
     ],

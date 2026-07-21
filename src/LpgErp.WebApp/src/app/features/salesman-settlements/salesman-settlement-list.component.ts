@@ -21,7 +21,7 @@ export class SalesmanSettlementListComponent {
       { key: 'netSettlement', label: 'Net Settlement', kind: 'money' },
     ],
     fields: [
-      { key: 'salesmanId', label: 'Salesman', type: 'select' },
+      { key: 'salesmanId', label: 'Salesman', type: 'select', endpoint: 'salesmen', optionLabel: 'name' },
       { key: 'settlementDate', label: 'Settlement Date', type: 'date' },
       { key: 'totalSales', label: 'Total Sales', type: 'number' },
       { key: 'collection', label: 'Collection', type: 'number' },
