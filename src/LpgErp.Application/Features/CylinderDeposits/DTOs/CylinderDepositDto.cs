@@ -26,7 +26,7 @@ public class CylinderDepositDto : IMapFrom<CylinderDeposit>
     }
 }
 
-public class CreateCylinderDepositRequest
+public class CreateCylinderDepositRequest : IMapTo<CylinderDeposit>
 {
     public Guid CustomerId { get; set; }
     public Guid CylinderSizeId { get; set; }
@@ -37,7 +37,7 @@ public class CreateCylinderDepositRequest
     public string? Notes { get; set; }
 }
 
-public class UpdateCylinderDepositRequest
+public class UpdateCylinderDepositRequest : IMapTo<CylinderDeposit>
 {
     public Guid CustomerId { get; set; }
     public Guid CylinderSizeId { get; set; }

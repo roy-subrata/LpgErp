@@ -1,129 +1,329 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
-import { Customer } from '../../core/models';
-import { CustomerFormComponent } from './customer-form.component';
+import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.component';
+import { CustomerReport, FinancialReport } from '../../core/models';
 
 @Component({
   selector: 'app-customer-list',
   standalone: true,
-  imports: [CommonModule, CustomerFormComponent],
+  imports: [CommonModule, FormsModule, RouterModule, EntityDrawerComponent],
   template: `
     <div class="page-header">
-      <h1>Customers</h1>
-      <button class="btn-primary" (click)="openCreate()">+ New Customer</button>
+      <div>
+        <h1 class="page-title">Customers</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn-secondary-sm" (click)="onExport()">↓ Export</button>
+        <button class="btn-primary-sm" (click)="openNew()">+ New Customer</button>
+      </div>
     </div>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Code</th>
-            <th>Type</th>
-            <th>Phone</th>
-            <th>Credit Limit</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (customer of customers(); track customer.id) {
-            <tr>
-              <td>{{ customer.name }}</td>
-              <td>{{ customer.code }}</td>
-              <td>{{ customer.type }}</td>
-              <td>{{ customer.phone }}</td>
-              <td>{{ customer.creditLimit | currency }}</td>
-              <td>{{ customer.isActive ? 'Active' : 'Inactive' }}</td>
-              <td>
-                <button class="btn-sm" (click)="openEdit(customer.id)">Edit</button>
-                <button class="btn-sm btn-danger" (click)="onDelete(customer.id)">Delete</button>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="7">No customers found.</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Total Customers</span>
+          <span class="kpi-icon" style="background:#fff7ed;color:#ea580c">👤</span>
+        </div>
+        <div class="kpi-value">{{ totalCount() }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Total Receivables</span>
+          <span class="kpi-icon" style="background:#fef2f2;color:#dc2626">৳</span>
+        </div>
+        <div class="kpi-value">৳{{ formatMoney(financial().accountsReceivable) }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Over Credit Limit</span>
+          <span class="kpi-icon" style="background:#fefce8;color:#a16207">⚠</span>
+        </div>
+        <div class="kpi-value">{{ overCreditCount() }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Cylinders Outstanding</span>
+          <span class="kpi-icon" style="background:#eff6ff;color:#1d4ed8">🔄</span>
+        </div>
+        <div class="kpi-value">{{ totalCylinderBalance() }}</div>
+      </div>
     </div>
-    <app-customer-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
+
+    <div class="table-card">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <input type="text" class="search-input" placeholder="Search customers..." [ngModel]="query()" (ngModelChange)="query.set($event)" />
+        </div>
+        <div class="toolbar-right">
+          <div class="tab-group">
+            <button class="tab-btn" [class.active]="activeTab() === ''" (click)="activeTab.set(''); currentPage.set(1)">All</button>
+            @for (tab of tabs; track tab.value) {
+              <button class="tab-btn" [class.active]="activeTab() === tab.value" (click)="activeTab.set(tab.value); currentPage.set(1)">{{ tab.label }}</button>
+            }
+          </div>
+          <span class="result-count">{{ filteredItems().length }} results</span>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:22%">Customer</th>
+              <th style="width:11%">Type</th>
+              <th style="width:12%">Phone</th>
+              <th style="width:11%">Credit Limit</th>
+              <th style="width:20%">Address</th>
+              <th style="width:9%">Status</th>
+              <th class="actions-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of pagedItems(); track item.id || $index) {
+              <tr class="data-row" (click)="openView(item)">
+                <td>
+                  <div class="main-cell">
+                    <span class="main-text">{{ item.name }}</span>
+                    <span class="sub-text">{{ item.code }} · {{ item.contactPerson }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" [style.background]="typeBadgeMap[item.type]?.[0]" [style.color]="typeBadgeMap[item.type]?.[1]">{{ typeLabel(item.type) }}</span>
+                </td>
+                <td><span class="muted-text">{{ item.phone }}</span></td>
+                <td><span class="money-text">৳ {{ item.creditLimit | number:'1.0-0' }}</span></td>
+                <td><span class="muted-text">{{ item.address }}</span></td>
+                <td>
+                  <span class="badge" [style.background]="item.isActive ? '#f0fdf4' : '#f4f5f7'" [style.color]="item.isActive ? '#15803d' : '#6b7280'">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+                </td>
+                <td class="actions-col">
+                  <button class="action-btn" title="View" (click)="openView(item); $event.stopPropagation()">→</button>
+                  <button class="action-btn" title="Edit" (click)="openEdit(item); $event.stopPropagation()">✎</button>
+                  <button class="action-btn danger" title="Delete" (click)="onDelete(item); $event.stopPropagation()">🗑</button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="empty-row">No customers found.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPages() > 1) {
+        <div class="table-footer">
+          <span class="footer-info">Showing {{ (currentPage() - 1) * pageSize + 1 }}–{{ Math.min(currentPage() * pageSize, filteredItems().length) }} of {{ filteredItems().length }}</span>
+          <div class="pagination">
+            <button class="page-btn" [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)">←</button>
+            @for (p of pageNumbers(); track p) {
+              <button class="page-btn" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+            }
+            <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="currentPage.set(currentPage() + 1)">→</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <app-entity-drawer
+      [open]="drawerOpen()"
+      [title]="drawerTitle()"
+      [subtitle]="drawerSubtitle()"
+      [mode]="drawerMode()"
+      [fields]="drawerFields"
+      [entity]="currentEntity()"
+      [saving]="saving()"
+      (closeDrawer)="drawerOpen.set(false)"
+      (saveEntity)="onSave($event)"
+    />
   `,
   styles: [`
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    .btn-primary {
-      background: #1a1a2e;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .table-container {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-    th {
-      background: #f8f9fa;
-      font-weight: 600;
-    }
-    .btn-sm {
-      padding: 0.25rem 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 0.25rem;
-    }
-    .btn-danger {
-      color: #dc3545;
-      border-color: #dc3545;
-    }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); margin: 0; }
+    .header-actions { display: flex; gap: 8px; }
+    .btn-primary-sm { padding: 9px 18px; border-radius: 7px; border: none; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-btn); }
+    .btn-primary-sm:hover { background: var(--primary-hover); }
+    .btn-secondary-sm { padding: 9px 18px; border-radius: 7px; border: 1px solid var(--border-input); background: var(--surface); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-secondary-sm:hover { background: var(--fill-subtle); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px 18px; }
+    .kpi-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .kpi-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .kpi-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .kpi-value { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.1; }
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
+    .table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-row); gap: 12px; flex-wrap: wrap; }
+    .search-box { width: 240px; }
+    .search-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border-input); border-radius: 7px; font-size: 13px; outline: none; background: var(--surface); }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,0.12); }
+    .toolbar-right { display: flex; align-items: center; gap: 12px; }
+    .tab-group { display: flex; gap: 4px; background: var(--fill-subtle); border-radius: 7px; padding: 3px; }
+    .tab-btn { padding: 5px 12px; border: none; border-radius: 5px; background: transparent; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+    .tab-btn.active { background: var(--surface); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+    .tab-btn:hover:not(.active) { color: var(--text-secondary); }
+    .result-count { font-size: 12px; color: var(--text-muted); }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    .data-table th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); background: var(--fill-subtle); white-space: nowrap; }
+    .data-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border-row); color: var(--text-primary); }
+    .data-row { cursor: pointer; transition: background 0.1s; }
+    .data-row:hover { background: var(--fill-subtle); }
+    .main-cell { display: flex; flex-direction: column; gap: 2px; }
+    .main-text { font-weight: 600; color: var(--text-primary); }
+    .sub-text { font-size: 12px; color: var(--text-muted); }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .money-text { font-weight: 700; color: var(--text-primary); }
+    .muted-text { font-size: 12px; color: var(--text-muted); }
+    .actions-col { width: 80px; text-align: center; }
+    .action-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; font-size: 13px; margin: 0 2px; display: inline-flex; align-items: center; justify-content: center; }
+    .action-btn:hover { background: var(--fill-subtle); }
+    .action-btn.danger { color: var(--red-fg); border-color: var(--red-bg); }
+    .action-btn.danger:hover { background: var(--red-bg); }
+    .empty-row { text-align: center; padding: 40px 14px !important; color: var(--text-muted); }
+    .table-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border-row); }
+    .footer-info { font-size: 12px; color: var(--text-muted); }
+    .pagination { display: flex; gap: 4px; }
+    .page-btn { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+    .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .page-btn:hover:not(.active):not(:disabled) { background: var(--fill-subtle); }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    @media (max-width: 768px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
   `],
 })
 export class CustomerListComponent implements OnInit {
   private api = inject(ApiService);
-  customers = signal<Customer[]>([]);
-  showForm = signal(false);
-  editingId = signal<string | null>(null);
+
+  Math = Math;
+  pageSize = 15;
+
+  items = signal<any[]>([]);
+  financial = signal<FinancialReport>({ totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPurchasePayments: 0, accountsReceivable: 0, supplierPayable: 0, transportationExpenses: 0, commissionBalance: 0, depositLiability: 0, netProfit: 0 });
+  customerReports = signal<CustomerReport[]>([]);
+  query = signal('');
+  activeTab = signal('');
+  currentPage = signal(1);
+  drawerOpen = signal(false);
+  drawerMode = signal<'view' | 'edit' | 'new'>('new');
+  currentEntity = signal<any>(null);
+  saving = signal(false);
+
+  readonly tabs = [
+    { label: 'Retail', value: '0' },
+    { label: 'Wholesale', value: '1' },
+    { label: 'Commercial', value: '2' },
+    { label: 'Restaurant', value: '3' },
+    { label: 'Hotel', value: '4' },
+    { label: 'Industrial', value: '5' },
+  ];
+
+  readonly typeBadgeMap: Record<string, [string, string]> = {
+    '0': ['#f0fdf4', '#15803d'], '1': ['#eff6ff', '#1d4ed8'], '2': ['#fefce8', '#a16207'],
+    '3': ['#fefce8', '#a16207'], '4': ['#faf5ff', '#7e22ce'], '5': ['#fff7ed', '#ea580c'],
+  };
+
+  readonly typeLabels: Record<string, string> = {
+    '0': 'Retail', '1': 'Wholesale', '2': 'Commercial', '3': 'Restaurant', '4': 'Hotel', '5': 'Industrial',
+  };
+
+  readonly drawerFields: DrawerField[] = [
+    { key: 'name', label: 'Name', type: 'text', required: true },
+    { key: 'code', label: 'Code', type: 'text', required: true, mono: true },
+    { key: 'type', label: 'Type', type: 'select', required: true, options: [
+      { label: 'Retail', value: '0' }, { label: 'Wholesale', value: '1' }, { label: 'Commercial', value: '2' },
+      { label: 'Restaurant', value: '3' }, { label: 'Hotel', value: '4' }, { label: 'Industrial', value: '5' },
+    ]},
+    { key: 'contactPerson', label: 'Contact Person', type: 'text' },
+    { key: 'phone', label: 'Phone', type: 'text' },
+    { key: 'email', label: 'Email', type: 'text' },
+    { key: 'address', label: 'Address', type: 'text' },
+    { key: 'creditLimit', label: 'Credit Limit', type: 'number' },
+    { key: 'paymentDueDays', label: 'Payment Due Days', type: 'number' },
+    { key: 'isActive', label: 'Active', type: 'toggle' },
+  ];
+
+  totalCount = computed(() => this.items().length);
+  overCreditCount = computed(() => this.customerReports().filter(c => c.outstandingBalance > c.creditLimit).length);
+  totalCylinderBalance = computed(() => this.customerReports().reduce((s, c) => s + c.cylinderBalance, 0));
+
+  filteredItems = computed(() => {
+    let list = this.items();
+    const tab = this.activeTab();
+    const q = this.query().toLowerCase();
+    if (tab) list = list.filter(i => String(i.type) === tab);
+    if (q) list = list.filter(i => ['name', 'code', 'phone'].some(f => String(i[f] ?? '').toLowerCase().includes(q)));
+    return list;
+  });
+
+  totalPages = computed(() => Math.ceil(this.filteredItems().length / this.pageSize));
+
+  pagedItems = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return this.filteredItems().slice(start, start + this.pageSize);
+  });
+
+  pageNumbers = computed(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    const pages: number[] = [];
+    for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) pages.push(i);
+    return pages;
+  });
+
+  drawerTitle = computed(() => {
+    const mode = this.drawerMode();
+    if (mode === 'new') return 'New Customer';
+    if (mode === 'edit') return 'Edit Customer';
+    return 'Customer';
+  });
+
+  drawerSubtitle = computed(() => {
+    const entity = this.currentEntity();
+    if (entity?.id) return entity.id.substring(0, 8);
+    return '';
+  });
 
   ngOnInit() {
-    this.loadData();
+    this.load();
   }
 
-  loadData() {
-    this.api.getAllList<Customer>('customers').subscribe(data => this.customers.set(data));
+  load() {
+    this.api.getAllList<any>('customers').subscribe(data => this.items.set(data));
+    forkJoin({
+      financial: this.api.get<FinancialReport>('reports/financial', { from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] }),
+      reports: this.api.get<CustomerReport[]>('reports/customers'),
+    }).subscribe(data => {
+      this.financial.set(data.financial);
+      this.customerReports.set(data.reports);
+    });
   }
 
-  openCreate() {
-    this.editingId.set(null);
-    this.showForm.set(true);
+  typeLabel(val: any): string { return this.typeLabels[String(val)] ?? String(val); }
+
+  openNew() { this.currentEntity.set({}); this.drawerMode.set('new'); this.drawerOpen.set(true); }
+  openView(item: any) { this.currentEntity.set({ ...item }); this.drawerMode.set('view'); this.drawerOpen.set(true); }
+  openEdit(item: any) { this.currentEntity.set({ ...item }); this.drawerMode.set('edit'); this.drawerOpen.set(true); }
+
+  onSave(data: any) {
+    this.saving.set(true);
+    const id = data.id || data.Id;
+    const req$ = id ? this.api.update('customers', id, data) : this.api.create('customers', data);
+    req$.subscribe({ next: () => { this.saving.set(false); this.drawerOpen.set(false); this.load(); }, error: () => this.saving.set(false) });
   }
 
-  openEdit(id: string) {
-    this.editingId.set(id);
-    this.showForm.set(true);
-  }
-
-  onDelete(id: string) {
-    if (confirm('Are you sure?')) {
-      this.api.delete('customers', id).subscribe(() => this.loadData());
+  onDelete(item: any) {
+    if (confirm('Delete this customer?')) {
+      this.api.delete('customers', item.id || item.Id).subscribe(() => this.load());
     }
+  }
+
+  onExport() {}
+
+  formatMoney(val: number): string {
+    if (!val) return '0';
+    if (val >= 100000) return (val / 100000).toFixed(2) + 'L';
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+    return val.toLocaleString('en-IN');
   }
 }

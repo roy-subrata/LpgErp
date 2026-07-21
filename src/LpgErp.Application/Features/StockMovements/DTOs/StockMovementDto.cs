@@ -29,7 +29,7 @@ public class StockMovementDto : IMapFrom<StockMovement>
     }
 }
 
-public class CreateStockMovementRequest
+public class CreateStockMovementRequest : IMapTo<StockMovement>
 {
     public Guid ProductId { get; set; }
     public StockMovementType Type { get; set; }

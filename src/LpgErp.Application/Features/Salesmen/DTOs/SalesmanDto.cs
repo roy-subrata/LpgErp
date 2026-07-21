@@ -14,7 +14,7 @@ public class SalesmanDto : IMapFrom<Salesman>
     public bool IsActive { get; set; }
 }
 
-public class CreateSalesmanRequest
+public class CreateSalesmanRequest : IMapTo<Salesman>
 {
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }
@@ -24,7 +24,7 @@ public class CreateSalesmanRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateSalesmanRequest
+public class UpdateSalesmanRequest : IMapTo<Salesman>
 {
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }

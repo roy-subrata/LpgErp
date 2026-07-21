@@ -21,7 +21,7 @@ public class CylinderSizeDto : IMapFrom<CylinderSize>
     }
 }
 
-public class CreateCylinderSizeRequest
+public class CreateCylinderSizeRequest : IMapTo<CylinderSize>
 {
     public Guid BrandId { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -30,7 +30,7 @@ public class CreateCylinderSizeRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateCylinderSizeRequest
+public class UpdateCylinderSizeRequest : IMapTo<CylinderSize>
 {
     public Guid BrandId { get; set; }
     public string Name { get; set; } = string.Empty;

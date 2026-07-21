@@ -25,7 +25,7 @@ public class SalesmanSettlementDto : IMapFrom<SalesmanSettlement>
     }
 }
 
-public class CreateSalesmanSettlementRequest
+public class CreateSalesmanSettlementRequest : IMapTo<SalesmanSettlement>
 {
     public Guid SalesmanId { get; set; }
     public decimal TotalSales { get; set; }
@@ -36,7 +36,7 @@ public class CreateSalesmanSettlementRequest
     public string? Notes { get; set; }
 }
 
-public class UpdateSalesmanSettlementRequest
+public class UpdateSalesmanSettlementRequest : IMapTo<SalesmanSettlement>
 {
     public Guid SalesmanId { get; set; }
     public decimal TotalSales { get; set; }

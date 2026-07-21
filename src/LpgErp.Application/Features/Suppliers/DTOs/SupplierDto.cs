@@ -25,7 +25,7 @@ public class SupplierDto : IMapFrom<Supplier>
     }
 }
 
-public class CreateSupplierRequest
+public class CreateSupplierRequest : IMapTo<Supplier>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
@@ -38,7 +38,7 @@ public class CreateSupplierRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateSupplierRequest
+public class UpdateSupplierRequest : IMapTo<Supplier>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }

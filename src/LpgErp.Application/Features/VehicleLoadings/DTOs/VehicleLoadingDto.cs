@@ -50,7 +50,7 @@ public class VehicleLoadingItemDto : IMapFrom<VehicleLoadingItem>
     }
 }
 
-public class CreateVehicleLoadingRequest
+public class CreateVehicleLoadingRequest : IMapTo<VehicleLoading>
 {
     public DateTime LoadingDate { get; set; }
     public Guid TruckId { get; set; }
@@ -68,7 +68,7 @@ public class CreateVehicleLoadingItemRequest
     public int LoadedQuantity { get; set; }
 }
 
-public class UpdateVehicleLoadingRequest
+public class UpdateVehicleLoadingRequest : IMapTo<VehicleLoading>
 {
     public DateTime LoadingDate { get; set; }
     public Guid TruckId { get; set; }
@@ -119,7 +119,7 @@ public class VehicleClosingItemDto : IMapFrom<VehicleClosingItem>
     }
 }
 
-public class CreateVehicleClosingRequest
+public class CreateVehicleClosingRequest : IMapTo<VehicleClosing>
 {
     public Guid VehicleLoadingId { get; set; }
     public decimal CashCollected { get; set; }

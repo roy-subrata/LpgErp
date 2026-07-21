@@ -26,7 +26,7 @@ public class PaymentDto : IMapFrom<Payment>
     }
 }
 
-public class UpdatePaymentRequest
+public class UpdatePaymentRequest : IMapTo<Payment>
 {
     public Guid? SalesOrderId { get; set; }
     public Guid? PurchaseOrderId { get; set; }
@@ -38,7 +38,7 @@ public class UpdatePaymentRequest
     public string? Notes { get; set; }
 }
 
-public class CreatePaymentRequest
+public class CreatePaymentRequest : IMapTo<Payment>
 {
     public Guid? SalesOrderId { get; set; }
     public Guid? PurchaseOrderId { get; set; }

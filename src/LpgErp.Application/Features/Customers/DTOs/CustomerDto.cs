@@ -18,7 +18,7 @@ public class CustomerDto : IMapFrom<Customer>
     public int PaymentDueDays { get; set; } = 30;
 }
 
-public class CreateCustomerRequest
+public class CreateCustomerRequest : IMapTo<Customer>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
@@ -32,7 +32,7 @@ public class CreateCustomerRequest
     public int PaymentDueDays { get; set; } = 30;
 }
 
-public class UpdateCustomerRequest
+public class UpdateCustomerRequest : IMapTo<Customer>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }

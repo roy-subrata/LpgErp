@@ -29,7 +29,7 @@ public class DriverSettlementDto : IMapFrom<DriverSettlement>
     }
 }
 
-public class CreateDriverSettlementRequest
+public class CreateDriverSettlementRequest : IMapTo<DriverSettlement>
 {
     public Guid DriverId { get; set; }
     public Guid? VehicleLoadingId { get; set; }
@@ -44,7 +44,7 @@ public class CreateDriverSettlementRequest
     public string? Notes { get; set; }
 }
 
-public class UpdateDriverSettlementRequest
+public class UpdateDriverSettlementRequest : IMapTo<DriverSettlement>
 {
     public Guid DriverId { get; set; }
     public Guid? VehicleLoadingId { get; set; }

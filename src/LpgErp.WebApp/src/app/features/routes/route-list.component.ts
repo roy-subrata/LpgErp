@@ -1,93 +1,33 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService } from '../../core/api.service';
-import { Route } from '../../core/models';
-import { RouteFormComponent } from './route-form.component';
+import { EntityListComponent, EntityConfig } from '../../shared/entity-list.component';
 
 @Component({
   selector: 'app-route-list',
   standalone: true,
-  imports: [CommonModule, RouteFormComponent],
-  template: `
-    <div class="page-header">
-      <h1>Routes</h1>
-      <button class="btn-primary" (click)="onNew()">+ New Route</button>
-    </div>
-    <app-route-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Area</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (r of items(); track r.id) {
-            <tr>
-              <td>{{ r.name }}</td>
-              <td>{{ r.area }}</td>
-              <td>{{ r.description }}</td>
-              <td>{{ r.isActive ? 'Active' : 'Inactive' }}</td>
-              <td>
-                <button class="btn-sm" (click)="onEdit(r.id)">Edit</button>
-                <button class="btn-sm btn-danger" (click)="onDelete(r.id)">Delete</button>
-              </td>
-            </tr>
-          } @empty {
-            <tr><td colspan="5">No routes found.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  `,
-  styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .btn-primary { background: #1a1a2e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-    .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .btn-sm { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; margin-right: 0.25rem; }
-    .btn-danger { color: #dc3545; border-color: #dc3545; }
-  `],
+  imports: [CommonModule, EntityListComponent],
+  template: `<app-entity-list [config]="config" [searchFields]="searchFields" />`,
 })
-export class RouteListComponent implements OnInit {
-  private api = inject(ApiService);
-  items = signal<Route[]>([]);
-  showForm = signal(false);
-  editingId = signal<string | null>(null);
-
-  ngOnInit() {
-    this.loadData();
-  }
-
-  loadData() {
-    this.api.getAllList<Route>('routes').subscribe(data => this.items.set(data));
-  }
-
-  onNew() {
-    this.editingId.set(null);
-    this.showForm.set(true);
-  }
-
-  onEdit(id: string) {
-    this.editingId.set(id);
-    this.showForm.set(true);
-  }
-
-  onDelete(id: string) {
-    if (confirm('Are you sure?')) {
-      this.api.delete('routes', id).subscribe(() => this.loadData());
-    }
-  }
-
-  onSaved() {
-    this.showForm.set(false);
-    this.editingId.set(null);
-    this.loadData();
-  }
+export class RouteListComponent {
+  readonly config: EntityConfig = {
+    endpoint: 'routes',
+    title: 'Routes',
+    singular: 'Route',
+    cols: [
+      { key: 'name', label: 'Name', kind: 'main', sub: 'area' },
+      { key: 'description', label: 'Description', kind: 'muted' },
+      { key: 'village', label: 'Village', kind: 'text' },
+      { key: 'dealer', label: 'Dealer', kind: 'text' },
+      { key: 'isActive', label: 'Status', kind: 'badge', badgeMap: { true: ['Active', '#f0fdf4', '#15803d'], false: ['Inactive', '#f4f5f7', '#6b7280'] } },
+    ],
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'area', label: 'Area', type: 'text' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'village', label: 'Village', type: 'text' },
+      { key: 'dealer', label: 'Dealer', type: 'text' },
+      { key: 'isActive', label: 'Active', type: 'toggle' },
+    ],
+  };
+  readonly searchFields = ['name', 'area', 'village', 'dealer'];
 }

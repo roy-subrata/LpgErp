@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Public Sans', sans-serif; background: #f4f5f7; -webkit-font-smoothing: antialiased; }
+    a { color: #c2410c; text-decoration: none; }
+    a:hover { color: #9a3412; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; height: 100vh; overflow: hidden; color: #1c1f26;" data-screen-label="Dashboard">
+  <nav style="width: 232px; flex-shrink: 0; background: #14161d; color: #e5e7eb; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 18px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);">
+      <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #f97316, #dc2626); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: white;">L</div>
+      <div>
+        <div style="font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: #fff;">LPG ERP</div>
+        <div style="font-size: 10px; color: #6b7280; letter-spacing: 0.08em; text-transform: uppercase;">Distributor Suite</div>
+      </div>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding: 12px 10px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #5b6270; padding: 14px 10px 6px;">{{ group.label }}</div>
+          <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="3">
+            <a href="{{ item.href }}" style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; font-size: 13px; font-weight: 500; color: {{ item.color }}; background: {{ item.bg }}; cursor: pointer;" style-hover="background: rgba(255,255,255,0.06); color: #fff;">
+              <span style="width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; opacity: 0.85;">{{ item.icon }}</span>
+              <span>{{ item.name }}</span>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; gap: 10px;">
+      <div style="width: 30px; height: 30px; border-radius: 50%; background: #374151; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #d1d5db;">SR</div>
+      <div style="min-width: 0;">
+        <div style="font-size: 12px; font-weight: 600; color: #f3f4f6;">Subrata Roy</div>
+        <div style="font-size: 11px; color: #6b7280;">Admin</div>
+      </div>
+    </div>
+  </nav>
+
+  <main style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+    <header style="height: 56px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e7e9ee; display: flex; align-items: center; gap: 16px; padding: 0 24px;">
+      <div style="font-size: 13px; color: #1c1f26; font-weight: 600;">Dashboard</div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; background: #f4f5f7; border: 1px solid #e7e9ee; border-radius: 8px; padding: 7px 12px; width: 260px; max-width: 32vw;">
+          <span style="color: #9ca3af; font-size: 13px;">⌕</span>
+          <span style="font-size: 13px; color: #9ca3af; white-space: nowrap;">Search anything…</span>
+          <span style="margin-left: auto; font-size: 10px; font-family: 'JetBrains Mono', monospace; color: #9ca3af; background: #fff; border: 1px solid #e7e9ee; border-radius: 4px; padding: 1px 5px;">⌘K</span>
+        </div>
+        <div style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e7e9ee; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; background: #fff;" style-hover="background: #f4f5f7;">
+          <span style="font-size: 15px;">🔔</span>
+          <span style="position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; border: 1.5px solid #fff;"></span>
+        </div>
+      </div>
+    </header>
+
+    <div style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px;">
+        <div>
+          <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em;">Good afternoon, Subrata</h1>
+          <p style="margin: 0; font-size: 13px; color: #6b7280;">Sunday, 20 July 2026 · 3 vehicles on route · 2 low stock alerts</p>
+        </div>
+        <div style="display: flex; gap: 6px; background: #fff; border: 1px solid #e7e9ee; border-radius: 8px; padding: 3px;">
+          <sc-for list="{{ rangeTabs }}" as="tab" hint-placeholder-count="3">
+            <button onClick="{{ tab.select }}" style="font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; border: none; background: {{ tab.bg }}; color: {{ tab.color }}; cursor: pointer; white-space: nowrap;">{{ tab.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px;">
+        <sc-for list="{{ kpis }}" as="kpi" hint-placeholder-count="4">
+          <div style="background: #fff; border: 1px solid #e7e9ee; border-radius: 12px; padding: 16px 18px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 12px; font-weight: 600; color: #6b7280;">{{ kpi.label }}</span>
+              <span style="width: 26px; height: 26px; border-radius: 7px; background: {{ kpi.iconBg }}; color: {{ kpi.iconColor }}; display: inline-flex; align-items: center; justify-content: center; font-size: 13px;">{{ kpi.icon }}</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">{{ kpi.value }}</span>
+              <span style="font-size: 11px; font-weight: 700; color: {{ kpi.deltaColor }};">{{ kpi.delta }}</span>
+            </div>
+            <div style="font-size: 11px; color: #9ca3af; margin-top: 4px;">{{ kpi.sub }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 14px; margin-bottom: 18px;">
+        <!-- Sales chart -->
+        <div style="background: #fff; border: 1px solid #e7e9ee; border-radius: 12px; padding: 18px 20px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <div style="font-size: 14px; font-weight: 700;">Sales — last 14 days</div>
+            <div style="display: flex; gap: 14px; font-size: 11px; color: #6b7280;">
+              <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #ea580c;"></span>Cash</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #fdba74;"></span>Credit</span>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: #9ca3af; margin-bottom: 14px;">Total ৳ 9.42L · avg ৳ 67.3K/day</div>
+          <div style="display: flex; align-items: flex-end; gap: 8px; height: 150px;">
+            <sc-for list="{{ chartBars }}" as="bar" hint-placeholder-count="14">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end;">
+                <div title="{{ bar.tip }}" style="width: 100%; max-width: 26px; height: {{ bar.h }}; border-radius: 5px 5px 2px 2px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer;" style-hover="opacity: 0.8;">
+                  <div style="height: {{ bar.creditPct }}; background: #fdba74;"></div>
+                  <div style="flex: 1; background: #ea580c;"></div>
+                </div>
+                <div style="font-size: 9px; color: #9ca3af; font-weight: 600;">{{ bar.day }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- Vehicles on route -->
+        <div style="background: #fff; border: 1px solid #e7e9ee; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div style="font-size: 14px; font-weight: 700;">Vehicles on route</div>
+            <a href="Vehicle Loadings.dc.html" style="font-size: 12px; font-weight: 600;">View all →</a>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <sc-for list="{{ vehicles }}" as="v" hint-placeholder-count="3">
+              <div style="border: 1px solid #eef0f3; border-radius: 10px; padding: 12px 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{{ v.plate }}</span>
+                  <span style="font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: {{ v.statusBg }}; color: {{ v.statusColor }};">{{ v.status }}</span>
+                </div>
+                <div style="font-size: 11px; color: #6b7280; margin-bottom: 8px;">{{ v.crew }} · {{ v.route }}</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="flex: 1; height: 5px; border-radius: 5px; background: #eef0f3; overflow: hidden;">
+                    <div style="height: 100%; width: {{ v.soldPct }}; background: #ea580c; border-radius: 5px;"></div>
+                  </div>
+                  <span style="font-size: 10px; font-weight: 700; color: #6b7280; white-space: nowrap;">{{ v.progress }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 14px;">
+        <!-- Low stock -->
+        <div style="background: #fff; border: 1px solid #e7e9ee; border-radius: 12px; overflow: hidden;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px;">
+            <div style="font-size: 14px; font-weight: 700;">Low stock alerts</div>
+            <span style="font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; background: #fef2f2; color: #dc2626;">2 critical</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 0.8fr; column-gap: 14px; padding: 8px 20px; background: #fafbfc; border-top: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3;">
+            <sc-for list="{{ stockCols }}" as="c" hint-placeholder-count="5">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280;">{{ c }}</div>
+            </sc-for>
+          </div>
+          <sc-for list="{{ lowStock }}" as="s" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 0.8fr; column-gap: 14px; align-items: center; padding: 11px 20px; border-bottom: 1px solid #f1f3f6;">
+              <div style="font-size: 13px; font-weight: 600;">{{ s.product }}</div>
+              <div style="font-size: 12px; color: #6b7280;">{{ s.warehouse }}</div>
+              <div style="font-size: 13px; font-weight: 700; color: {{ s.stockColor }};">{{ s.current }}</div>
+              <div style="font-size: 12px; color: #9ca3af;">min {{ s.min }}</div>
+              <div><span style="font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: {{ s.badgeBg }}; color: {{ s.badgeColor }};">{{ s.badge }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- Brand inventory -->
+        <div style="background: #fff; border: 1px solid #e7e9ee; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 14px; font-weight: 700; margin-bottom: 14px;">Cylinder stock by brand</div>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <sc-for list="{{ brands }}" as="b" hint-placeholder-count="4">
+              <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                  <span style="font-size: 12px; font-weight: 700;">{{ b.name }}</span>
+                  <span style="font-size: 11px; color: #6b7280;"><b style="color: #1c1f26;">{{ b.filled }}</b> filled · {{ b.empty }} empty</span>
+                </div>
+                <div style="display: flex; height: 8px; border-radius: 6px; overflow: hidden; background: #eef0f3;">
+                  <div style="width: {{ b.filledPct }}; background: {{ b.color }};"></div>
+                  <div style="width: {{ b.emptyPct }}; background: {{ b.color }}; opacity: 0.3;"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef0f3; display: flex; justify-content: space-between; font-size: 12px;">
+            <span style="color: #6b7280;">Total cylinders</span>
+            <span style="font-weight: 800;">2,418</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { range: 'This month' };
+
+  renderVals() {
+    const s = this.state;
+    const days = [42,55,38,61,70,48,66,74,58,80,64,90,72,85];
+    const bars = days.map((v, i) => ({
+      h: Math.round(v / 90 * 100) + '%',
+      creditPct: (20 + (i * 7) % 25) + '%',
+      day: ['7','8','9','10','11','12','13','14','15','16','17','18','19','20'][i],
+      tip: '৳ ' + (v * 1000).toLocaleString('en-IN'),
+    }));
+    const HREFS = {"Dashboard":"Dashboard.dc.html","Reports":"Reports.dc.html","Vehicle Loadings":"Vehicle Loadings.dc.html","Vehicle Closings":"Vehicle Closings.dc.html","Salesmen":"Salesmen Page.dc.html","Drivers":"Drivers.dc.html","Trucks":"Trucks.dc.html","Routes":"Routes.dc.html","Sales Orders":"Sales Orders.dc.html","Purchase Orders":"Purchase Orders.dc.html","Payments":"Payments.dc.html","Stock Transfers":"Stock Transfers.dc.html","Daily Sales":"Daily Sales.dc.html","Driver Settlements":"Driver Settlements.dc.html","Salesman Settlements":"Salesman Settlements.dc.html","Cylinder Deposits":"Cylinder Deposits.dc.html","Cylinder Exchanges":"Cylinder Exchanges.dc.html","Customers":"Customers.dc.html","Cylinder Ledger":"Cylinder Ledger.dc.html","Gas Ledger":"Gas Ledger.dc.html","Credit":"Credit.dc.html","Advance Refills":"Advance Refills.dc.html","Notifications":"Notifications.dc.html","Brands":"Brands.dc.html","Warehouses":"Warehouses.dc.html","Products":"Products.dc.html","Cylinders":"Cylinders.dc.html","Cylinder Sizes":"Cylinder Sizes.dc.html","Suppliers":"Suppliers.dc.html","Transport Companies":"Transport Companies.dc.html"};
+    const navItems = (arr, activeName) => arr.map(([icon, name, href]) => ({
+      icon, name, href: HREFS[name] || '#',
+      color: name === activeName ? '#fff' : '#9aa1ad',
+      bg: name === activeName ? 'rgba(249,115,22,0.16)' : 'transparent',
+    }));
+    return {
+      rangeTabs: ['Today', 'This week', 'This month'].map(t => ({
+        label: t,
+        bg: s.range === t ? '#14161d' : 'transparent',
+        color: s.range === t ? '#fff' : '#6b7280',
+        select: () => this.setState({ range: t }),
+      })),
+      kpis: [
+        { label: 'Sales', value: '৳ 9.42L', delta: '+12.4%', deltaColor: '#15803d', sub: '218 orders', icon: '⇄', iconBg: '#fff7ed', iconColor: '#c2410c' },
+        { label: 'Cash collected', value: '৳ 8.11L', delta: '86%', deltaColor: '#15803d', sub: 'collection rate', icon: '৳', iconBg: '#f0fdf4', iconColor: '#15803d' },
+        { label: 'Receivables', value: '৳ 2.84L', delta: '+8.1%', deltaColor: '#dc2626', sub: '31 customers with dues', icon: '◷', iconBg: '#fefce8', iconColor: '#a16207' },
+        { label: 'Refills sold', value: '1,204', delta: '+96 pkg', deltaColor: '#15803d', sub: 'packages this month', icon: '○', iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+      ],
+      chartBars: bars,
+      vehicles: [
+        { plate: 'DHK-4471', crew: 'Rahim · Driver Malek', route: 'Mirpur R4', status: 'Selling', statusBg: '#f0fdf4', statusColor: '#15803d', soldPct: '72%', progress: '36/50 sold' },
+        { plate: 'DHK-2210', crew: 'Kamal · Driver Idris', route: 'Uttara R2', status: 'Selling', statusBg: '#f0fdf4', statusColor: '#15803d', soldPct: '48%', progress: '24/50 sold' },
+        { plate: 'DHK-3856', crew: 'Jashim · Driver Habib', route: 'Gulshan R7', status: 'Loading', statusBg: '#fefce8', statusColor: '#a16207', soldPct: '0%', progress: '0/45 sold' },
+      ],
+      stockCols: ['Product', 'Warehouse', 'Stock', 'Minimum', 'Level'],
+      lowStock: [
+        { product: 'Bashundhara 12 KG Refill', warehouse: 'Main WH', current: '8', min: 40, stockColor: '#dc2626', badge: 'Critical', badgeBg: '#fef2f2', badgeColor: '#dc2626' },
+        { product: 'Omera 12 KG Package', warehouse: 'City WH', current: '14', min: 30, stockColor: '#dc2626', badge: 'Critical', badgeBg: '#fef2f2', badgeColor: '#dc2626' },
+        { product: 'BM 35 KG Refill', warehouse: 'Main WH', current: '22', min: 25, stockColor: '#d97706', badge: 'Low', badgeBg: '#fefce8', badgeColor: '#a16207' },
+        { product: 'Petromax 5 KG Package', warehouse: 'Regional WH', current: '18', min: 20, stockColor: '#d97706', badge: 'Low', badgeBg: '#fefce8', badgeColor: '#a16207' },
+      ],
+      brands: [
+        { name: 'Bashundhara', filled: 486, empty: 312, filledPct: '61%', emptyPct: '39%', color: '#ea580c' },
+        { name: 'Omera', filled: 402, empty: 198, filledPct: '67%', emptyPct: '33%', color: '#1d4ed8' },
+        { name: 'BM LPG', filled: 289, empty: 240, filledPct: '55%', emptyPct: '45%', color: '#0f766e' },
+        { name: 'Petromax', filled: 274, empty: 217, filledPct: '56%', emptyPct: '44%', color: '#7e22ce' },
+      ],
+      navGroups: [
+        { label: 'Overview', items: navItems([['◫', 'Dashboard'], ['▤', 'Reports']], 'Dashboard') },
+        { label: 'Operations', items: navItems([['⛟', 'Vehicle Loadings'], ['◒', 'Vehicle Closings'], ['♟', 'Salesmen'], ['⛊', 'Drivers'], ['◨', 'Trucks'], ['⌖', 'Routes']]) },
+        { label: 'Transactions', items: navItems([['⇄', 'Sales Orders'], ['⇊', 'Purchase Orders'], ['৳', 'Payments'], ['⇋', 'Stock Transfers'], ['≡', 'Daily Sales']]) },
+        { label: 'Settlements', items: navItems([['⚖', 'Driver Settlements'], ['☑', 'Salesman Settlements'], ['⬓', 'Cylinder Deposits'], ['⇆', 'Cylinder Exchanges']]) },
+        { label: 'Customers', items: navItems([['◉', 'Customers'], ['☰', 'Cylinder Ledger'], ['≋', 'Gas Ledger'], ['✦', 'Credit'], ['◍', 'Advance Refills'], ['◌', 'Notifications']]) },
+        { label: 'Master Data', items: navItems([['◈', 'Brands'], ['▣', 'Warehouses'], ['◇', 'Products'], ['○', 'Cylinders'], ['◐', 'Cylinder Sizes'], ['◎', 'Suppliers'], ['▦', 'Transport Companies']]) },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

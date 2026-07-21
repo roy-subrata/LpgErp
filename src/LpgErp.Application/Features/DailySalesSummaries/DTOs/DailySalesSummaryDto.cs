@@ -38,7 +38,7 @@ public class DailySalesSummaryDto : IMapFrom<DailySalesSummary>
     }
 }
 
-public class CreateDailySalesSummaryRequest
+public class CreateDailySalesSummaryRequest : IMapTo<DailySalesSummary>
 {
     public Guid VehicleLoadingId { get; set; }
     public Guid TruckId { get; set; }
@@ -59,7 +59,7 @@ public class CreateDailySalesSummaryRequest
     public string? Notes { get; set; }
 }
 
-public class UpdateDailySalesSummaryRequest
+public class UpdateDailySalesSummaryRequest : IMapTo<DailySalesSummary>
 {
     public Guid VehicleLoadingId { get; set; }
     public Guid TruckId { get; set; }

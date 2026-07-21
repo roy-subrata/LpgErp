@@ -12,7 +12,7 @@ public class DriverDto : IMapFrom<Driver>
     public bool IsActive { get; set; }
 }
 
-public class CreateDriverRequest
+public class CreateDriverRequest : IMapTo<Driver>
 {
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }
@@ -20,7 +20,7 @@ public class CreateDriverRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateDriverRequest
+public class UpdateDriverRequest : IMapTo<Driver>
 {
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }

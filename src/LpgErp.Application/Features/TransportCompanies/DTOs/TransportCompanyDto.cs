@@ -15,7 +15,7 @@ public class TransportCompanyDto : IMapFrom<TransportCompany>
     public bool IsActive { get; set; }
 }
 
-public class CreateTransportCompanyRequest
+public class CreateTransportCompanyRequest : IMapTo<TransportCompany>
 {
     public string Name { get; set; } = string.Empty;
     public string? ContactPerson { get; set; }
@@ -25,7 +25,7 @@ public class CreateTransportCompanyRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateTransportCompanyRequest
+public class UpdateTransportCompanyRequest : IMapTo<TransportCompany>
 {
     public string Name { get; set; } = string.Empty;
     public string? ContactPerson { get; set; }

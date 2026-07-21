@@ -15,7 +15,7 @@ public class RouteDto : IMapFrom<Route>
     public bool IsActive { get; set; }
 }
 
-public class CreateRouteRequest
+public class CreateRouteRequest : IMapTo<Route>
 {
     public string Name { get; set; } = string.Empty;
     public string? Area { get; set; }
@@ -25,7 +25,7 @@ public class CreateRouteRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateRouteRequest
+public class UpdateRouteRequest : IMapTo<Route>
 {
     public string Name { get; set; } = string.Empty;
     public string? Area { get; set; }

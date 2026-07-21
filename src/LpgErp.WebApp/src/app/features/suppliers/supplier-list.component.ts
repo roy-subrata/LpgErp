@@ -1,91 +1,36 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService } from '../../core/api.service';
-import { Supplier } from '../../core/models';
-import { SupplierFormComponent } from './supplier-form.component';
+import { EntityListComponent, EntityConfig } from '../../shared/entity-list.component';
 
 @Component({
   selector: 'app-supplier-list',
   standalone: true,
-  imports: [CommonModule, SupplierFormComponent],
-  template: `
-    <div class="page-header">
-      <h1>Suppliers</h1>
-      <button class="btn-primary" (click)="openCreate()">+ New Supplier</button>
-    </div>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Code</th>
-            <th>Contact Person</th>
-            <th>Phone</th>
-            <th>LPG Company</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (s of items(); track s.id) {
-            <tr>
-              <td>{{ s.name }}</td>
-              <td>{{ s.code }}</td>
-              <td>{{ s.contactPerson }}</td>
-              <td>{{ s.phone }}</td>
-              <td>{{ s.isLpgCompany ? 'Yes' : 'No' }}</td>
-              <td>{{ s.isActive ? 'Active' : 'Inactive' }}</td>
-              <td>
-                <button class="btn-sm" (click)="openEdit(s.id)">Edit</button>
-                <button class="btn-sm btn-danger" (click)="onDelete(s.id)">Delete</button>
-              </td>
-            </tr>
-          } @empty {
-            <tr><td colspan="7">No suppliers found.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <app-supplier-form [open]="showForm()" [entityId]="editingId()" (close)="showForm.set(false)" (saved)="showForm.set(false); loadData()" />
-  `,
-  styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .btn-primary { background: #1a1a2e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-    .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .btn-sm { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; margin-right: 0.25rem; }
-    .btn-danger { color: #dc3545; border-color: #dc3545; }
-  `],
+  imports: [CommonModule, EntityListComponent],
+  template: `<app-entity-list [config]="config" [searchFields]="searchFields" />`,
 })
-export class SupplierListComponent implements OnInit {
-  private api = inject(ApiService);
-  items = signal<Supplier[]>([]);
-  showForm = signal(false);
-  editingId = signal<string | null>(null);
-
-  ngOnInit() {
-    this.loadData();
-  }
-
-  loadData() {
-    this.api.getAllList<Supplier>('suppliers').subscribe(data => this.items.set(data));
-  }
-
-  openCreate() {
-    this.editingId.set(null);
-    this.showForm.set(true);
-  }
-
-  openEdit(id: string) {
-    this.editingId.set(id);
-    this.showForm.set(true);
-  }
-
-  onDelete(id: string) {
-    if (confirm('Are you sure?')) {
-      this.api.delete('suppliers', id).subscribe(() => this.loadData());
-    }
-  }
+export class SupplierListComponent {
+  readonly config: EntityConfig = {
+    endpoint: 'suppliers',
+    title: 'Suppliers',
+    singular: 'Supplier',
+    cols: [
+      { key: 'name', label: 'Name', kind: 'main', sub: 'contactPerson' },
+      { key: 'code', label: 'Code', kind: 'mono' },
+      { key: 'phone', label: 'Phone', kind: 'text' },
+      { key: 'email', label: 'Email', kind: 'text' },
+      { key: 'isLpgCompany', label: 'LPG Company', kind: 'badge', badgeMap: { true: ['Yes', '#f0fdf4', '#15803d'], false: ['No', '#f4f5f7', '#6b7280'] } },
+      { key: 'isActive', label: 'Status', kind: 'badge', badgeMap: { true: ['Active', '#f0fdf4', '#15803d'], false: ['Inactive', '#f4f5f7', '#6b7280'] } },
+    ],
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text', required: true, mono: true },
+      { key: 'contactPerson', label: 'Contact Person', type: 'text' },
+      { key: 'phone', label: 'Phone', type: 'text' },
+      { key: 'email', label: 'Email', type: 'text' },
+      { key: 'address', label: 'Address', type: 'text' },
+      { key: 'isLpgCompany', label: 'LPG Company', type: 'toggle' },
+      { key: 'isActive', label: 'Active', type: 'toggle' },
+    ],
+  };
+  readonly searchFields = ['name', 'code', 'contactPerson', 'phone', 'email'];
 }

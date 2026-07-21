@@ -13,7 +13,7 @@ public class WarehouseDto : IMapFrom<Warehouse>
     public bool IsActive { get; set; }
 }
 
-public class CreateWarehouseRequest
+public class CreateWarehouseRequest : IMapTo<Warehouse>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
@@ -22,7 +22,7 @@ public class CreateWarehouseRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateWarehouseRequest
+public class UpdateWarehouseRequest : IMapTo<Warehouse>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }

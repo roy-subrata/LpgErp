@@ -23,7 +23,7 @@ public class AdvanceRefillDto : IMapFrom<CustomerCylinderBalance>
     }
 }
 
-public class CreateAdvanceRefillRequest
+public class CreateAdvanceRefillRequest : IMapTo<CustomerCylinderBalance>
 {
     public Guid CustomerId { get; set; }
     public Guid WarehouseId { get; set; }

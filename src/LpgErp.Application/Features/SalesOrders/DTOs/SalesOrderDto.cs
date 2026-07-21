@@ -53,7 +53,7 @@ public class SalesOrderItemDto : IMapFrom<SalesOrderItem>
     }
 }
 
-public class CreateSalesOrderRequest
+public class CreateSalesOrderRequest : IMapTo<SalesOrder>
 {
     public Guid CustomerId { get; set; }
     public Guid WarehouseId { get; set; }
@@ -74,7 +74,7 @@ public class CreateSalesOrderItemRequest
     public int? CylinderExchangeQuantity { get; set; }
 }
 
-public class UpdateSalesOrderRequest
+public class UpdateSalesOrderRequest : IMapTo<SalesOrder>
 {
     public Guid CustomerId { get; set; }
     public Guid WarehouseId { get; set; }

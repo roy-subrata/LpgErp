@@ -26,7 +26,7 @@ public class CylinderDto : IMapFrom<Cylinder>
     }
 }
 
-public class CreateCylinderRequest
+public class CreateCylinderRequest : IMapTo<Cylinder>
 {
     public Guid BrandId { get; set; }
     public Guid CylinderSizeId { get; set; }
@@ -36,7 +36,7 @@ public class CreateCylinderRequest
     public bool HasGas { get; set; }
 }
 
-public class UpdateCylinderRequest
+public class UpdateCylinderRequest : IMapTo<Cylinder>
 {
     public Guid BrandId { get; set; }
     public Guid CylinderSizeId { get; set; }

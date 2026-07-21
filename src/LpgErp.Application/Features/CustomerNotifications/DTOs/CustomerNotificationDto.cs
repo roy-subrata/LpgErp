@@ -22,7 +22,7 @@ public class CustomerNotificationDto : IMapFrom<CustomerNotification>
     }
 }
 
-public class CreateCustomerNotificationRequest
+public class CreateCustomerNotificationRequest : IMapTo<CustomerNotification>
 {
     public Guid CustomerId { get; set; }
     public NotificationType Type { get; set; }
@@ -30,7 +30,7 @@ public class CreateCustomerNotificationRequest
     public string Message { get; set; } = string.Empty;
 }
 
-public class UpdateCustomerNotificationRequest
+public class UpdateCustomerNotificationRequest : IMapTo<CustomerNotification>
 {
     public Guid CustomerId { get; set; }
     public NotificationType Type { get; set; }

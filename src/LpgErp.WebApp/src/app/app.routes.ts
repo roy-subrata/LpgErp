@@ -8,6 +8,36 @@ export const routes: Routes = [
       import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
   },
   {
+    path: 'reports',
+    loadComponent: () =>
+      import('./features/reports/reports.component').then(m => m.ReportsComponent),
+  },
+  {
+    path: 'vehicle-loadings',
+    loadComponent: () =>
+      import('./features/vehicle-loadings/vehicle-loading-list.component').then(m => m.VehicleLoadingListComponent),
+  },
+  {
+    path: 'loading-history',
+    loadComponent: () =>
+      import('./features/loading-history/loading-history.component').then(m => m.LoadingHistoryComponent),
+  },
+  {
+    path: 'sales-orders',
+    loadComponent: () =>
+      import('./features/sales-orders/sales-order-list.component').then(m => m.SalesOrderListComponent),
+  },
+  {
+    path: 'customers',
+    loadComponent: () =>
+      import('./features/customers/customer-list.component').then(m => m.CustomerListComponent),
+  },
+  {
+    path: 'salesmen',
+    loadComponent: () =>
+      import('./features/salesmen/salesman-list.component').then(m => m.SalesmanListComponent),
+  },
+  {
     path: 'brands',
     loadComponent: () =>
       import('./features/brands/brand-list.component').then(m => m.BrandListComponent),
@@ -16,11 +46,6 @@ export const routes: Routes = [
     path: 'warehouses',
     loadComponent: () =>
       import('./features/warehouses/warehouse-list.component').then(m => m.WarehouseListComponent),
-  },
-  {
-    path: 'customers',
-    loadComponent: () =>
-      import('./features/customers/customer-list.component').then(m => m.CustomerListComponent),
   },
   {
     path: 'products',
@@ -36,11 +61,6 @@ export const routes: Routes = [
     path: 'transport-companies',
     loadComponent: () =>
       import('./features/transport-companies/transport-company-list.component').then(m => m.TransportCompanyListComponent),
-  },
-  {
-    path: 'vehicle-closings',
-    loadComponent: () =>
-      import('./features/vehicle-closings/vehicle-closing-list.component').then(m => m.VehicleClosingListComponent),
   },
   {
     path: 'cylinders',
@@ -63,11 +83,6 @@ export const routes: Routes = [
       import('./features/drivers/driver-list.component').then(m => m.DriverListComponent),
   },
   {
-    path: 'salesmen',
-    loadComponent: () =>
-      import('./features/salesmen/salesman-list.component').then(m => m.SalesmanListComponent),
-  },
-  {
     path: 'routes',
     loadComponent: () =>
       import('./features/routes/route-list.component').then(m => m.RouteListComponent),
@@ -78,19 +93,19 @@ export const routes: Routes = [
       import('./features/purchase-orders/purchase-order-list.component').then(m => m.PurchaseOrderListComponent),
   },
   {
-    path: 'sales-orders',
-    loadComponent: () =>
-      import('./features/sales-orders/sales-order-list.component').then(m => m.SalesOrderListComponent),
-  },
-  {
     path: 'payments',
     loadComponent: () =>
       import('./features/payments/payment-list.component').then(m => m.PaymentListComponent),
   },
   {
-    path: 'vehicle-loadings',
+    path: 'stock-transfers',
     loadComponent: () =>
-      import('./features/vehicle-loadings/vehicle-loading-list.component').then(m => m.VehicleLoadingListComponent),
+      import('./features/stock-transfers/stock-transfer-list.component').then(m => m.StockTransferListComponent),
+  },
+  {
+    path: 'daily-sales-summaries',
+    loadComponent: () =>
+      import('./features/daily-sales-summaries/daily-sales-summary.component').then(m => m.DailySalesSummaryComponent),
   },
   {
     path: 'driver-settlements',
@@ -113,19 +128,9 @@ export const routes: Routes = [
       import('./features/cylinder-exchanges/cylinder-exchange-list.component').then(m => m.CylinderExchangeListComponent),
   },
   {
-    path: 'customer-notifications',
+    path: 'vehicle-closings',
     loadComponent: () =>
-      import('./features/customer-notifications/customer-notification-list.component').then(m => m.CustomerNotificationListComponent),
-  },
-  {
-    path: 'stock-transfers',
-    loadComponent: () =>
-      import('./features/stock-transfers/stock-transfer-list.component').then(m => m.StockTransferListComponent),
-  },
-  {
-    path: 'reports',
-    loadComponent: () =>
-      import('./features/reports/reports.component').then(m => m.ReportsComponent),
+      import('./features/vehicle-closings/vehicle-closing-list.component').then(m => m.VehicleClosingListComponent),
   },
   {
     path: 'customer-cylinder-ledger',
@@ -148,9 +153,9 @@ export const routes: Routes = [
       import('./features/advance-refills/advance-refill.component').then(m => m.AdvanceRefillComponent),
   },
   {
-    path: 'daily-sales-summaries',
+    path: 'customer-notifications',
     loadComponent: () =>
-      import('./features/daily-sales-summaries/daily-sales-summary.component').then(m => m.DailySalesSummaryComponent),
+      import('./features/customer-notifications/customer-notification-list.component').then(m => m.CustomerNotificationListComponent),
   },
   { path: '**', redirectTo: 'dashboard' },
 ];

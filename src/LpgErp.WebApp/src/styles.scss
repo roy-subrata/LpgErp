@@ -1,16 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --bg: #f4f5f7;
+  --surface: #fff;
+  --text-primary: #1c1f26;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --border: #e7e9ee;
+  --border-inner: #eef0f3;
+  --border-row: #f1f3f6;
+  --border-input: #e0e3e9;
+  --fill-subtle: #fafbfc;
+  --fill-subtle2: #f8f9fb;
+
+  --sidebar-bg: #14161d;
+  --sidebar-text: #e5e7eb;
+  --sidebar-muted: #9aa1ad;
+  --sidebar-label: #5b6270;
+  --sidebar-divider: rgba(255,255,255,0.07);
+
+  --primary: #ea580c;
+  --primary-hover: #c2410c;
+  --primary-deep: #9a3412;
+  --primary-tint1: #fff7ed;
+  --primary-tint2: #ffedd5;
+  --primary-tint3: #fed7aa;
+  --primary-tint4: #fdba74;
+  --link: #c2410c;
+
+  --green-bg: #f0fdf4;
+  --green-fg: #15803d;
+  --amber-bg: #fefce8;
+  --amber-fg: #a16207;
+  --amber-fg2: #d97706;
+  --blue-bg: #eff6ff;
+  --blue-fg: #1d4ed8;
+  --purple-bg: #faf5ff;
+  --purple-fg: #7e22ce;
+  --red-bg: #fef2f2;
+  --red-fg: #dc2626;
+  --grey-bg: #f4f5f7;
+  --grey-fg: #6b7280;
+
+  --brand-bashundhara: #ea580c;
+  --brand-omera: #1d4ed8;
+  --brand-bm: #0f766e;
+  --brand-petromax: #7e22ce;
+
+  --gradient: linear-gradient(135deg, #f97316, #dc2626);
+  --radius-card: 12px;
+  --radius-btn: 7px;
+  --radius-pill: 20px;
+  --radius-tile: 8px;
+  --shadow-btn: 0 1px 2px rgba(234,88,12,0.35);
+  --shadow-drawer: -12px 0 40px rgba(15,17,23,0.15);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+
+  --font-body: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-* {
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  min-height: 100vh;
-  background: #f5f5f5;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }

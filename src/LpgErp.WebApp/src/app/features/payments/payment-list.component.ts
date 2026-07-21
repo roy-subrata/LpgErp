@@ -1,104 +1,54 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService } from '../../core/api.service';
-import { Payment } from '../../core/models';
-import { PaymentFormComponent } from './payment-form.component';
+import { EntityListComponent, EntityConfig } from '../../shared/entity-list.component';
 
 @Component({
   selector: 'app-payment-list',
   standalone: true,
-  imports: [CommonModule, PaymentFormComponent],
-  template: `
-    <div class="page-header">
-      <h1>Payments</h1>
-      <button class="btn-primary" (click)="onNew()">+ New Payment</button>
-    </div>
-    <app-payment-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Sales Order</th>
-            <th>Purchase Order</th>
-            <th>Method</th>
-            <th>Direction</th>
-            <th>Amount</th>
-            <th>Reference</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (p of items(); track p.id) {
-            <tr>
-              <td>{{ p.paymentDate | date:'shortDate' }}</td>
-              <td>{{ p.salesOrderNumber || '-' }}</td>
-              <td>{{ p.purchaseOrderNumber || '-' }}</td>
-              <td>{{ paymentMethod(p.method) }}</td>
-              <td>{{ p.direction === 1 ? 'Inbound' : 'Outbound' }}</td>
-              <td>{{ p.amount | number:'1.2-2' }}</td>
-              <td>{{ p.reference }}</td>
-              <td>
-                <button class="btn-sm" (click)="onEdit(p.id)">Edit</button>
-                <button class="btn-sm btn-danger" (click)="onDelete(p.id)">Delete</button>
-              </td>
-            </tr>
-          } @empty {
-            <tr><td colspan="8">No payments found.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  `,
-  styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .btn-primary { background: #1a1a2e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-    .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .btn-sm { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; margin-right: 0.25rem; }
-    .btn-danger { color: #dc3545; border-color: #dc3545; }
-  `],
+  imports: [CommonModule, EntityListComponent],
+  template: `<app-entity-list [config]="config" [searchFields]="searchFields" />`,
 })
-export class PaymentListComponent implements OnInit {
-  private api = inject(ApiService);
-  items = signal<Payment[]>([]);
-  showForm = signal(false);
-  editingId = signal<string | null>(null);
-
-  ngOnInit() {
-    this.loadData();
-  }
-
-  loadData() {
-    this.api.getAll<Payment>('payments').subscribe(data => this.items.set(data.items));
-  }
-
-  onNew() {
-    this.editingId.set(null);
-    this.showForm.set(true);
-  }
-
-  onEdit(id: string) {
-    this.editingId.set(id);
-    this.showForm.set(true);
-  }
-
-  onDelete(id: string) {
-    if (confirm('Are you sure?')) {
-      this.api.delete('payments', id).subscribe(() => this.loadData());
-    }
-  }
-
-  onSaved() {
-    this.showForm.set(false);
-    this.editingId.set(null);
-    this.loadData();
-  }
-
-  paymentMethod(method: number): string {
-    const map: Record<number, string> = { 0: 'Cash', 1: 'Credit', 2: 'Bank Transfer', 3: 'Mobile Banking' };
-    return map[method] ?? 'Unknown';
-  }
+export class PaymentListComponent {
+  readonly config: EntityConfig = {
+    endpoint: 'payments',
+    title: 'Payments',
+    singular: 'Payment',
+    cols: [
+      { key: 'salesOrderNumber', label: 'Sales Order', kind: 'mono', sub: 'purchaseOrderNumber' },
+      {
+        key: 'method',
+        label: 'Method',
+        kind: 'badge',
+        badgeMap: {
+          '0': ['#f0fdf4', '#15803d'],
+          '1': ['#faf5ff', '#7e22ce'],
+          '2': ['#eff6ff', '#1d4ed8'],
+          '3': ['#fefce8', '#a16207'],
+        },
+      },
+      {
+        key: 'direction',
+        label: 'Direction',
+        kind: 'badge',
+        badgeMap: {
+          '0': ['#f0fdf4', '#15803d'],
+          '1': ['#fefce8', '#a16207'],
+        },
+      },
+      { key: 'amount', label: 'Amount', kind: 'money' },
+      { key: 'paymentDate', label: 'Date', kind: 'date' },
+      { key: 'reference', label: 'Reference', kind: 'muted' },
+    ],
+    fields: [
+      { key: 'salesOrderId', label: 'Sales Order', type: 'text' },
+      { key: 'purchaseOrderId', label: 'Purchase Order', type: 'text' },
+      { key: 'method', label: 'Method', type: 'select', options: [{ label: 'Cash', value: 0 }, { label: 'Bank', value: 1 }, { label: 'Mobile', value: 2 }, { label: 'Cheque', value: 3 }] },
+      { key: 'direction', label: 'Direction', type: 'select', options: [{ label: 'Received', value: 0 }, { label: 'Paid', value: 1 }] },
+      { key: 'amount', label: 'Amount', type: 'number', required: true },
+      { key: 'paymentDate', label: 'Payment Date', type: 'date' },
+      { key: 'reference', label: 'Reference', type: 'text' },
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+    ],
+  };
+  readonly searchFields = ['salesOrderNumber', 'purchaseOrderNumber', 'reference'];
 }

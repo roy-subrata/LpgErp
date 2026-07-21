@@ -34,7 +34,7 @@ public class CylinderExchangeDto : IMapFrom<CylinderExchange>
     }
 }
 
-public class CreateCylinderExchangeRequest
+public class CreateCylinderExchangeRequest : IMapTo<CylinderExchange>
 {
     public Guid CustomerId { get; set; }
     public Guid? SalesOrderId { get; set; }
@@ -48,7 +48,7 @@ public class CreateCylinderExchangeRequest
     public string? Notes { get; set; }
 }
 
-public class UpdateCylinderExchangeRequest
+public class UpdateCylinderExchangeRequest : IMapTo<CylinderExchange>
 {
     public Guid CustomerId { get; set; }
     public Guid IncomingBrandId { get; set; }

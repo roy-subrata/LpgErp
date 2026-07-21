@@ -52,7 +52,7 @@ public class PurchaseOrderItemDto : IMapFrom<PurchaseOrderItem>
     }
 }
 
-public class CreatePurchaseOrderRequest
+public class CreatePurchaseOrderRequest : IMapTo<PurchaseOrder>
 {
     public Guid SupplierId { get; set; }
     public Guid WarehouseId { get; set; }
@@ -71,7 +71,7 @@ public class CreatePurchaseOrderItemRequest
     public decimal UnitPrice { get; set; }
 }
 
-public class UpdatePurchaseOrderRequest
+public class UpdatePurchaseOrderRequest : IMapTo<PurchaseOrder>
 {
     public Guid SupplierId { get; set; }
     public Guid WarehouseId { get; set; }

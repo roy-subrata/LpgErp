@@ -28,7 +28,7 @@ public class ProductDto : IMapFrom<Product>
     }
 }
 
-public class CreateProductRequest
+public class CreateProductRequest : IMapTo<Product>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
@@ -42,7 +42,7 @@ public class CreateProductRequest
     public bool IsActive { get; set; } = true;
 }
 
-public class UpdateProductRequest
+public class UpdateProductRequest : IMapTo<Product>
 {
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
