@@ -1,0 +1,57 @@
+name: Deploy Test
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - 'src/LpgErp.Api/**'
+      - 'src/LpgErp.Application/**'
+      - 'src/LpgErp.Domain/**'
+      - 'src/LpgErp.Infrastructure/**'
+      - 'src/LpgErp.WebApp/**'
+      - 'deployments/**'
+      - '.github/workflows/deploy-test.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-test:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Deploy test stack to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            cd ~/LpgErp || { echo "Directory not found! Run initial setup first."; exit 1; }
+
+            echo "=== Pulling latest code from test branch ==="
+            git fetch origin test
+            git reset --hard origin/test
+
+            echo "=== Stopping old test containers ==="
+            docker compose -p lpgerp-test --env-file deployments/.env -f deployments/docker-compose.test.yml down --remove-orphans --timeout 30
+
+            echo "=== Waiting for containers to fully stop ==="
+            for i in $(seq 1 10); do
+              if docker ps -a --format '{{.Names}}' | grep -q 'lpgerp-test'; then
+                echo "Still waiting... ($i/10)"
+                sleep 2
+              else
+                echo "All old containers removed."
+                break
+              fi
+            done
+
+            echo "=== Building and starting test stack ==="
+            docker compose -p lpgerp-test --env-file deployments/.env -f deployments/docker-compose.test.yml up --build -d --force-recreate
+
+            echo "=== Cleaning up unused Docker images ==="
+            docker image prune -f
+
+            echo "=== Test deployment complete! ==="

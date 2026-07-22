@@ -1,0 +1,57 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/LpgErp.Api/**'
+      - 'src/LpgErp.Application/**'
+      - 'src/LpgErp.Domain/**'
+      - 'src/LpgErp.Infrastructure/**'
+      - 'src/LpgErp.WebApp/**'
+      - 'deployments/**'
+      - '.github/workflows/deploy-prod.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy production stack to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            cd ~/LpgErp || { echo "Directory not found! Run initial setup first."; exit 1; }
+
+            echo "=== Pulling latest code from main branch ==="
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Stopping old production containers ==="
+            docker compose -p lpgerp-prod --env-file deployments/.env -f deployments/docker-compose.yml down --remove-orphans --timeout 30
+
+            echo "=== Waiting for containers to fully stop ==="
+            for i in $(seq 1 10); do
+              if docker ps -a --format '{{.Names}}' | grep -q 'lpgerp'; then
+                echo "Still waiting... ($i/10)"
+                sleep 2
+              else
+                echo "All old containers removed."
+                break
+              fi
+            done
+
+            echo "=== Building and starting production stack ==="
+            docker compose -p lpgerp-prod --env-file deployments/.env -f deployments/docker-compose.yml up --build -d --force-recreate
+
+            echo "=== Cleaning up unused Docker images ==="
+            docker image prune -f
+
+            echo "=== Production deployment complete! ==="

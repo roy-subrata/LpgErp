@@ -1,0 +1,7 @@
+# Applies to the API image build context (./src)
+**/bin/
+**/obj/
+**/logs/
+LpgErp.WebApp/
+LpgErp.Api.Tests/
+**/*.user

@@ -50,7 +50,8 @@ try
         {
             db.Database.Migrate();
 
-            if (app.Environment.IsDevelopment())
+            // Seed demo data in Development, or anywhere SeedData=true (e.g. the docker test stack).
+            if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("SeedData"))
             {
                 await DbSeeder.SeedAsync(db);
             }
@@ -69,7 +70,11 @@ try
         app.UseSwaggerUI();
     }
 
-    app.UseHttpsRedirection();
+    // Behind the nginx reverse proxy the container only speaks HTTP; TLS terminates at the proxy.
+    if (app.Configuration.GetValue("UseHttpsRedirect", true))
+    {
+        app.UseHttpsRedirection();
+    }
     app.UseCors("AllowAngular");
     app.UseAuthorization();
     app.MapControllers();

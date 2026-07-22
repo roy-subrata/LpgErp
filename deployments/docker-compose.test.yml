@@ -1,0 +1,45 @@
+# Test/staging stack: fully isolated from production (own db volume, own database, demo seed data).
+# Web on ${TEST_WEB_PORT:-8080}. Run with a separate project name so both stacks can coexist:
+#   docker compose -f docker-compose.test.yml -p lpgerp-test up -d --build
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?set SA_PASSWORD in .env}
+      MSSQL_PID: Express
+    volumes:
+      - lpg-mssql-test-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' -b"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../src
+      dockerfile: LpgErp.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=LpgErpTest;User=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
+      UseHttpsRedirect: "false"
+      SeedData: "true"   # test stack starts with the demo dataset
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../src/LpgErp.WebApp
+    ports:
+      - "${TEST_WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  lpg-mssql-test-data:
