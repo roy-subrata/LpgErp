@@ -32,6 +32,11 @@ public class SalesOrder : BaseEntity
     public Guid? RouteId { get; set; }
     public Route? Route { get; set; }
 
+    /// <summary>When set, this is a mobile sale off a dispatched vehicle: delivery draws down the vehicle's
+    /// loaded stock (warehouse stock was already deducted at loading) instead of warehouse stock.</summary>
+    public Guid? VehicleLoadingId { get; set; }
+    public VehicleLoading? VehicleLoading { get; set; }
+
     public ICollection<SalesOrderItem> Items { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
 }

@@ -23,6 +23,7 @@ public class SalesOrderDto : IMapFrom<SalesOrder>
     public Guid? TransportCompanyId { get; set; }
     public string? TransportCompanyName { get; set; }
     public Guid? RouteId { get; set; }
+    public Guid? VehicleLoadingId { get; set; }
     public string? RouteName { get; set; }
     public List<SalesOrderItemDto> Items { get; set; } = [];
 
@@ -63,6 +64,7 @@ public class CreateSalesOrderRequest : IMapTo<SalesOrder>
     public DateTime? DueDate { get; set; }
     public Guid? TransportCompanyId { get; set; }
     public Guid? RouteId { get; set; }
+    public Guid? VehicleLoadingId { get; set; }
     public List<CreateSalesOrderItemRequest> Items { get; set; } = [];
 }
 
@@ -85,5 +87,6 @@ public class UpdateSalesOrderRequest : IMapTo<SalesOrder>
     public DateTime? DueDate { get; set; }
     public Guid? TransportCompanyId { get; set; }
     public Guid? RouteId { get; set; }
+    public Guid? VehicleLoadingId { get; set; }
     public List<CreateSalesOrderItemRequest> Items { get; set; } = [];
 }

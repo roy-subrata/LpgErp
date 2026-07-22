@@ -37,6 +37,25 @@ interface SalesItem {
             }
           </select>
         </div>
+        <div class="form-group">
+          <label for="routeId">Route</label>
+          <select id="routeId" [(ngModel)]="routeId" name="routeId">
+            <option value="">-- None --</option>
+            @for (r of routes(); track r.id) {
+              <option [value]="r.id">{{ r.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="vehicleLoadingId">Vehicle Loading (mobile sale)</label>
+          <select id="vehicleLoadingId" [(ngModel)]="vehicleLoadingId" name="vehicleLoadingId">
+            <option value="">-- None (direct warehouse sale) --</option>
+            @for (vl of vehicleLoadings(); track vl.id) {
+              <option [value]="vl.id">{{ vl.truckName }} · {{ vl.loadingDate?.slice(0, 10) }}{{ vl.routeName ? ' · ' + vl.routeName : '' }}</option>
+            }
+          </select>
+          <small class="field-hint">When set, delivery draws down the vehicle's loaded stock instead of warehouse stock.</small>
+        </div>
         <div class="form-group checkbox-group">
           <label>
             <input type="checkbox" [(ngModel)]="isCreditSale" name="isCreditSale" />
@@ -88,6 +107,7 @@ interface SalesItem {
     .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; }
     .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .checkbox-group label { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; }
+    .field-hint { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; }
     .checkbox-group input[type="checkbox"] { width: auto; }
     .item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
     .item-row select, .item-row input { flex: 1; }
@@ -110,6 +130,8 @@ export class SalesOrderFormComponent implements OnChanges {
 
   customerId = '';
   warehouseId = '';
+  routeId = '';
+  vehicleLoadingId = '';
   isCreditSale = false;
   notes = '';
   dueDate = '';
@@ -119,6 +141,8 @@ export class SalesOrderFormComponent implements OnChanges {
   warehouses = signal<Warehouse[]>([]);
   products = signal<Product[]>([]);
   transportCompanies = signal<TransportCompany[]>([]);
+  routes = signal<any[]>([]);
+  vehicleLoadings = signal<any[]>([]);
   saving = signal(false);
 
   ngOnChanges(changes: SimpleChanges) {
@@ -128,10 +152,16 @@ export class SalesOrderFormComponent implements OnChanges {
       this.api.getAllList<Warehouse>('warehouses').subscribe(data => this.warehouses.set(data));
       this.api.getAllList<Product>('products').subscribe(data => this.products.set(data));
       this.api.getAllList<TransportCompany>('transportcompanies').subscribe(data => this.transportCompanies.set(data));
+      this.api.getAllList<any>('routes').subscribe(data => this.routes.set(data));
+      // Only dispatched loadings (status 0) can receive mobile sales.
+      this.api.getAll<any>('vehicleloadings', 1, 100).subscribe(page =>
+        this.vehicleLoadings.set(page.items.filter((vl: any) => vl.status === 0)));
       if (this.entityId) {
         this.api.getById<any>('salesorders', this.entityId).subscribe(so => {
           this.customerId = so.customerId ?? '';
           this.warehouseId = so.warehouseId ?? '';
+          this.routeId = so.routeId ?? '';
+          this.vehicleLoadingId = so.vehicleLoadingId ?? '';
           this.isCreditSale = so.isCreditSale ?? false;
           this.notes = so.notes ?? '';
           this.dueDate = so.dueDate?.split('T')[0] ?? '';
@@ -164,6 +194,8 @@ export class SalesOrderFormComponent implements OnChanges {
     const body = {
       customerId: this.customerId,
       warehouseId: this.warehouseId,
+      routeId: this.routeId || null,
+      vehicleLoadingId: this.vehicleLoadingId || null,
       isCreditSale: this.isCreditSale,
       notes: this.notes,
       dueDate: this.dueDate,
@@ -198,6 +230,8 @@ export class SalesOrderFormComponent implements OnChanges {
   private resetForm() {
     this.customerId = '';
     this.warehouseId = '';
+    this.routeId = '';
+    this.vehicleLoadingId = '';
     this.isCreditSale = false;
     this.notes = '';
     this.dueDate = '';

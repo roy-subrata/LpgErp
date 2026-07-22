@@ -17,6 +17,7 @@ public class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrder>
         builder.HasOne(s => s.Warehouse).WithMany().HasForeignKey(s => s.WarehouseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.Route).WithMany().HasForeignKey(s => s.RouteId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.TransportCompany).WithMany().HasForeignKey(s => s.TransportCompanyId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(s => s.VehicleLoading).WithMany().HasForeignKey(s => s.VehicleLoadingId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(s => s.OrderNumber).IsUnique();
     }
 }
