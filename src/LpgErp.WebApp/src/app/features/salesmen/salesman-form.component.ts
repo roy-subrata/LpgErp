@@ -72,7 +72,7 @@ export class SalesmanFormComponent implements OnChanges {
   private loadEntity() {
     this.api.getById<any>('salesmen', this.entityId!).subscribe(s => {
       this.name = s.name ?? '';
-      this.code = s.code ?? '';
+      this.code = s.employeeCode ?? '';
       this.phone = s.phone ?? '';
       this.isActive = s.isActive ?? true;
     });
@@ -89,7 +89,7 @@ export class SalesmanFormComponent implements OnChanges {
     this.saving = true;
     const body = {
       name: this.name,
-      code: this.code,
+      employeeCode: this.code,
       phone: this.phone,
       isActive: this.isActive,
     };

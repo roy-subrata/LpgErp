@@ -22,6 +22,15 @@ export interface EntityConfig {
   badgeMaps?: Record<string, Record<string, string[]>>;
 }
 
+/** An extra per-row action button (e.g. "Receive") rendered before the built-in edit/delete actions. */
+export interface RowAction {
+  key: string;
+  icon: string;
+  title: string;
+  /** Optional predicate — the button only renders for rows where it returns true. */
+  show?: (item: any) => boolean;
+}
+
 @Component({
   selector: 'app-entity-list',
   standalone: true,
@@ -115,6 +124,11 @@ export interface EntityConfig {
                   </td>
                 }
                 <td class="actions-col">
+                  @for (a of rowActions; track a.key) {
+                    @if (!a.show || a.show(item)) {
+                      <button class="action-btn" [title]="a.title" (click)="rowAction.emit({ key: a.key, item }); $event.stopPropagation()">{{ a.icon }}</button>
+                    }
+                  }
                   <button class="action-btn" title="View" (click)="openView(item); $event.stopPropagation()">→</button>
                   <button class="action-btn" title="Edit" (click)="openEdit(item); $event.stopPropagation()">✎</button>
                   <button class="action-btn danger" title="Delete" (click)="onDelete(item); $event.stopPropagation()">🗑</button>
@@ -151,6 +165,7 @@ export interface EntityConfig {
       [fields]="enrichedFields()"
       [entity]="currentEntity()"
       [saving]="saving()"
+      [allowEdit]="!useCustomForm"
       (closeDrawer)="closeDrawer()"
       (saveEntity)="onSave($event)"
     />
@@ -432,8 +447,22 @@ export class EntityListComponent implements OnInit {
   @Input() tabField?: string;
   @Input() searchFields?: string[];
   @Input() pageSize = 15;
+  /** When true, "New"/"Edit" delegate to the parent (for entities needing a richer form, e.g. line items) instead of the built-in drawer. */
+  @Input() useCustomForm = false;
+  /** Forces a data reload when the parent's custom form saves. Bump this input to trigger. */
+  @Input() set reloadSignal(_v: number) {
+    if (this._initialized) this.load();
+  }
+
+  /** Extra per-row action buttons; the parent handles them via (rowAction). */
+  @Input() rowActions: RowAction[] = [];
 
   @Output() rowClicked = new EventEmitter<any>();
+  @Output() newRequested = new EventEmitter<void>();
+  @Output() editRequested = new EventEmitter<any>();
+  @Output() rowAction = new EventEmitter<{ key: string; item: any }>();
+
+  private _initialized = false;
 
   private api = inject(ApiService);
 
@@ -510,6 +539,7 @@ export class EntityListComponent implements OnInit {
   });
 
   ngOnInit() {
+    this._initialized = true;
     this.load();
     this.loadSelectOptions();
   }
@@ -562,6 +592,10 @@ export class EntityListComponent implements OnInit {
   }
 
   openNew() {
+    if (this.useCustomForm) {
+      this.newRequested.emit();
+      return;
+    }
     this.currentEntity.set({});
     this.drawerMode.set('new');
     this.drawerOpen.set(true);
@@ -574,6 +608,10 @@ export class EntityListComponent implements OnInit {
   }
 
   openEdit(item: any) {
+    if (this.useCustomForm) {
+      this.editRequested.emit(item);
+      return;
+    }
     this.currentEntity.set({ ...item });
     this.drawerMode.set('edit');
     this.drawerOpen.set(true);

@@ -4,6 +4,7 @@ using LpgErp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LpgErp.Infrastructure.Migrations
 {
     [DbContext(typeof(LpgErpDbContext))]
-    partial class LpgErpDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722100237_AddPurchaseOrderItemMissingQuantity")]
+    partial class AddPurchaseOrderItemMissingQuantity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

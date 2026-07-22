@@ -85,7 +85,9 @@ export interface DrawerField {
         <div class="drawer-footer">
           @if (mode === 'view') {
             <button class="btn-secondary" (click)="onClose()">Close</button>
-            <button class="btn-secondary" (click)="mode = 'edit'">✎ Edit</button>
+            @if (allowEdit) {
+              <button class="btn-secondary" (click)="mode = 'edit'">✎ Edit</button>
+            }
           } @else {
             <button class="btn-secondary" (click)="onClose()">Cancel</button>
             <button class="btn-primary" [disabled]="saving" (click)="onSave()">
@@ -337,6 +339,7 @@ export class EntityDrawerComponent {
   @Input() fields: DrawerField[] = [];
   @Input() entity: any = null;
   @Input() saving = false;
+  @Input() allowEdit = true;
 
   @Output() closeDrawer = new EventEmitter<void>();
   @Output() saveEntity = new EventEmitter<any>();

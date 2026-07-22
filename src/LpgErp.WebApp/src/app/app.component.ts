@@ -345,8 +345,8 @@ export class AppComponent {
     {
       title: 'Operations',
       items: [
-        { label: 'Vehicle Loadings', icon: ' слиш', route: 'vehicle-loadings' },
-        { label: 'Vehicle Closings', icon: 'tright', route: 'vehicle-closings' },
+        { label: 'Vehicle Loadings', icon: '📥', route: 'vehicle-loadings' },
+        { label: 'Vehicle Closings', icon: '📤', route: 'vehicle-closings' },
         { label: 'Salesmen', icon: '🧑', route: 'salesmen' },
         { label: 'Drivers', icon: '🧑‍✈️', route: 'drivers' },
         { label: 'Trucks', icon: '🚛', route: 'trucks' },

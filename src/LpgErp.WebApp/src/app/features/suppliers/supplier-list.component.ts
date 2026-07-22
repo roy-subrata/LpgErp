@@ -19,6 +19,7 @@ export class SupplierListComponent {
       { key: 'phone', label: 'Phone', kind: 'text' },
       { key: 'email', label: 'Email', kind: 'text' },
       { key: 'isLpgCompany', label: 'LPG Company', kind: 'badge', badgeMap: { true: ['Yes', '#f0fdf4', '#15803d'], false: ['No', '#f4f5f7', '#6b7280'] } },
+      { key: 'commissionBalance', label: 'Commission Bal.', kind: 'money' },
       { key: 'isActive', label: 'Status', kind: 'badge', badgeMap: { true: ['Active', '#f0fdf4', '#15803d'], false: ['Inactive', '#f4f5f7', '#6b7280'] } },
     ],
     fields: [
@@ -29,6 +30,7 @@ export class SupplierListComponent {
       { key: 'email', label: 'Email', type: 'text' },
       { key: 'address', label: 'Address', type: 'text' },
       { key: 'isLpgCompany', label: 'LPG Company', type: 'toggle' },
+      { key: 'commissionPerCylinder', label: 'Commission / Cylinder', type: 'number' },
       { key: 'isActive', label: 'Active', type: 'toggle' },
     ],
   };

@@ -244,7 +244,7 @@ public class ReportService : IReportService
 
         foreach (var customer in customers)
         {
-            var totalPurchases = await _context.SalesOrders.Where(so => so.CustomerId == customer.Id && !so.IsDeleted).SumAsync(so => so.NetAmount, ct);
+            var totalPurchases = await _context.SalesOrders.Where(so => so.CustomerId == customer.Id && !so.IsDeleted).SumAsync(so => so.TotalAmount - so.Discount, ct);
             var totalPayments = await _context.Payments.Where(p => p.SalesOrderId != null && !p.IsDeleted && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id)).SumAsync(p => p.Amount, ct);
             var cylinderBalance = await _context.CustomerCylinderBalances.Where(c => c.CustomerId == customer.Id && !c.IsDeleted).SumAsync(c => c.Received - c.Returned, ct);
 
@@ -291,7 +291,7 @@ public class ReportService : IReportService
 
     public async Task<Result<FinancialReportDto>> GetFinancialReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
-        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.NetAmount, ct);
+        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
         var payments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
         var purchases = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.TotalAmount, ct);
         var purchasePayments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Outbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
@@ -600,7 +600,7 @@ public class ReportService : IReportService
     {
         var categories = new List<PnLCategoryDto>();
 
-        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.NetAmount, ct);
+        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
         categories.Add(new PnLCategoryDto { Category = "Sales Revenue", Amount = sales, IsIncome = true });
 
         var commission = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.CommissionEarned, ct);

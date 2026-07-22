@@ -13,6 +13,7 @@ public class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrder
         builder.Property(p => p.OrderNumber).HasMaxLength(50).IsRequired();
         builder.Property(p => p.TotalAmount).HasPrecision(18, 2);
         builder.Property(p => p.CommissionEarned).HasPrecision(18, 2);
+        builder.Property(p => p.CommissionApplied).HasPrecision(18, 2);
         builder.HasOne(p => p.Supplier).WithMany().HasForeignKey(p => p.SupplierId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.Warehouse).WithMany().HasForeignKey(p => p.WarehouseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.TransportCompany).WithMany().HasForeignKey(p => p.TransportCompanyId).OnDelete(DeleteBehavior.Restrict);

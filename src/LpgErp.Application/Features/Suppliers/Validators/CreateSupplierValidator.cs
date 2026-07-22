@@ -14,5 +14,8 @@ public class CreateSupplierValidator : AbstractValidator<CreateSupplierRequest>
         RuleFor(x => x.Email)
             .EmailAddress().When(x => !string.IsNullOrEmpty(x.Email))
             .WithMessage("Invalid email address.");
+
+        RuleFor(x => x.CommissionPerCylinder)
+            .GreaterThanOrEqualTo(0).WithMessage("Commission per cylinder cannot be negative.");
     }
 }

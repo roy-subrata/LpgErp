@@ -15,6 +15,8 @@ public class PurchaseOrderDto : IMapFrom<PurchaseOrder>
     public PurchaseOrderStatus Status { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal CommissionEarned { get; set; }
+    public decimal CommissionApplied { get; set; }
+    public decimal NetPayable => TotalAmount + TransportationCost - CommissionApplied;
     public DateTime? OrderDate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public DateTime? ReceivedDate { get; set; }
@@ -44,6 +46,8 @@ public class PurchaseOrderItemDto : IMapFrom<PurchaseOrderItem>
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
     public int DamagedQuantity { get; set; }
+    public int MissingQuantity { get; set; }
+    public int ShortQuantity { get; set; }
 
     public void Mapping(Profile profile)
     {
@@ -95,4 +99,5 @@ public class ReceiveItemRequest
     public Guid ProductId { get; set; }
     public int ReceivedQuantity { get; set; }
     public int DamagedQuantity { get; set; }
+    public int MissingQuantity { get; set; }
 }

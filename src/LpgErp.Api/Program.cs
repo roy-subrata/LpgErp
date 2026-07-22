@@ -26,7 +26,13 @@ try
     {
         options.AddPolicy("AllowAngular", policy =>
         {
-            policy.WithOrigins("http://localhost:4200")
+            // Allow any localhost origin in dev so the Angular dev server works on
+            // whatever port it lands on (4200, or an alternate if that's taken).
+            policy.SetIsOriginAllowed(origin =>
+                {
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                    return uri.IsLoopback;
+                })
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         });
@@ -43,10 +49,15 @@ try
         try
         {
             db.Database.Migrate();
+
+            if (app.Environment.IsDevelopment())
+            {
+                await DbSeeder.SeedAsync(db);
+            }
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Could not apply database migrations");
+            Log.Warning(ex, "Could not apply database migrations or seed data");
         }
     }
 

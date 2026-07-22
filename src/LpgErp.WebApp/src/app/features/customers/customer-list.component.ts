@@ -231,8 +231,8 @@ export class CustomerListComponent implements OnInit {
     { key: 'name', label: 'Name', type: 'text', required: true },
     { key: 'code', label: 'Code', type: 'text', required: true, mono: true },
     { key: 'type', label: 'Type', type: 'select', required: true, options: [
-      { label: 'Retail', value: '0' }, { label: 'Wholesale', value: '1' }, { label: 'Commercial', value: '2' },
-      { label: 'Restaurant', value: '3' }, { label: 'Hotel', value: '4' }, { label: 'Industrial', value: '5' },
+      { label: 'Retail', value: 0 }, { label: 'Wholesale', value: 1 }, { label: 'Commercial', value: 2 },
+      { label: 'Restaurant', value: 3 }, { label: 'Hotel', value: 4 }, { label: 'Industrial', value: 5 },
     ]},
     { key: 'contactPerson', label: 'Contact Person', type: 'text' },
     { key: 'phone', label: 'Phone', type: 'text' },

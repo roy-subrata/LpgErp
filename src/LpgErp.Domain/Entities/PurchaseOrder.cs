@@ -20,6 +20,8 @@ public class PurchaseOrder : BaseEntity
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.Draft;
     public decimal TotalAmount { get; set; }
     public decimal CommissionEarned { get; set; }
+    /// <summary>Supplier commission balance auto-adjusted against this order, reducing the net payable.</summary>
+    public decimal CommissionApplied { get; set; }
     public DateTime? OrderDate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public DateTime? ReceivedDate { get; set; }

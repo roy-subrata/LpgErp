@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SalesOrder } from '../../core/models';
 import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.component';
+import { SalesOrderFormComponent } from './sales-order-form.component';
 
 @Component({
   selector: 'app-sales-order-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityDrawerComponent],
+  imports: [CommonModule, FormsModule, EntityDrawerComponent, SalesOrderFormComponent],
   template: `
     <div class="page-header">
       <h1 class="page-title">Sales Orders</h1>
@@ -101,15 +102,23 @@ import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.c
       }
     </div>
 
+    <!-- View drawer (read-only) -->
     <app-entity-drawer
       [open]="drawerOpen()"
       [title]="drawerTitle()"
-      [mode]="drawerMode()"
+      [mode]="'view'"
       [fields]="drawerFields"
       [entity]="currentEntity()"
       [saving]="saving()"
       (closeDrawer)="drawerOpen.set(false)"
-      (saveEntity)="onSave($event)"
+    />
+
+    <!-- Create / edit form (customer, warehouse, line items) -->
+    <app-sales-order-form
+      [open]="formOpen()"
+      [entityId]="editId()"
+      (close)="formOpen.set(false)"
+      (saved)="onFormSaved()"
     />
   `,
   styles: [`
@@ -351,18 +360,19 @@ export class SalesOrderListComponent implements OnInit {
   currentPage = signal(1);
   pageSize = 15;
   drawerOpen = signal(false);
-  drawerMode = signal<'view' | 'edit' | 'new'>('new');
+  drawerMode = signal<'view' | 'edit' | 'new'>('view');
   currentEntity = signal<any>(null);
   saving = signal(false);
+  formOpen = signal(false);
+  editId = signal<string | null>(null);
 
   Math = Math;
 
   readonly statusBadgeMap: Record<number, [string, string]> = {
-    0: ['#f4f5f7', '#6b7280'],
-    1: ['#eff6ff', '#1d4ed8'],
-    2: ['#fefce8', '#a16207'],
-    3: ['#f0fdf4', '#15803d'],
-    4: ['#fef2f2', '#dc2626'],
+    0: ['#f4f5f7', '#6b7280'], // Draft
+    1: ['#eff6ff', '#1d4ed8'], // Confirmed
+    2: ['#f0fdf4', '#15803d'], // Delivered
+    3: ['#fef2f2', '#dc2626'], // Cancelled
   };
 
   readonly paymentBadgeMap: Record<number, [string, string]> = {
@@ -379,7 +389,7 @@ export class SalesOrderListComponent implements OnInit {
     { key: 'dueDate', label: 'Due Date', type: 'date' },
     { key: 'status', label: 'Status', type: 'select', options: [
       { label: 'Draft', value: 0 }, { label: 'Confirmed', value: 1 },
-      { label: 'Partially Delivered', value: 2 }, { label: 'Delivered', value: 3 },
+      { label: 'Delivered', value: 2 }, { label: 'Cancelled', value: 3 },
     ]},
     { key: 'isCreditSale', label: 'Credit Sale', type: 'toggle' },
     { key: 'notes', label: 'Notes', type: 'textarea' },
@@ -389,14 +399,14 @@ export class SalesOrderListComponent implements OnInit {
     const items = this.items();
     const draft = items.filter(i => i.status === 0).length;
     const confirmed = items.filter(i => i.status === 1).length;
-    const partial = items.filter(i => i.status === 2).length;
-    const delivered = items.filter(i => i.status === 3).length;
-    const outstanding = items.filter(i => i.status === 1 || i.status === 2).reduce((s, i) => s + i.netAmount - (i.discount || 0), 0);
+    const delivered = items.filter(i => i.status === 2).length;
+    const cancelled = items.filter(i => i.status === 3).length;
+    const outstanding = items.filter(i => i.isCreditSale).reduce((s, i) => s + i.netAmount, 0);
     return [
       { label: 'Draft', value: '0', count: draft, sub: 'awaiting confirmation', dotColor: '#6b7280' },
-      { label: 'Confirmed', value: '1', count: confirmed, sub: 'ready to deliver', dotColor: '#1d4ed8' },
-      { label: 'Partially paid', value: '2', count: partial, sub: '৳' + this.formatMoney(outstanding) + ' outstanding', dotColor: '#a16207' },
-      { label: 'Delivered', value: '3', count: delivered, sub: 'this month', dotColor: '#15803d' },
+      { label: 'Confirmed', value: '1', count: confirmed, sub: '৳' + this.formatMoney(outstanding) + ' on credit', dotColor: '#1d4ed8' },
+      { label: 'Delivered', value: '2', count: delivered, sub: 'completed', dotColor: '#15803d' },
+      { label: 'Cancelled', value: '3', count: cancelled, sub: 'voided', dotColor: '#dc2626' },
     ];
   });
 
@@ -453,7 +463,7 @@ export class SalesOrderListComponent implements OnInit {
   }
 
   getStatusLabel(status: number): string {
-    const map: Record<number, string> = { 0: 'Draft', 1: 'Confirmed', 2: 'Partial', 3: 'Delivered', 4: 'Cancelled' };
+    const map: Record<number, string> = { 0: 'Draft', 1: 'Confirmed', 2: 'Delivered', 3: 'Cancelled' };
     return map[status] ?? 'Unknown';
   }
 
@@ -475,20 +485,18 @@ export class SalesOrderListComponent implements OnInit {
   }
 
   getDue(item: SalesOrder): string {
-    const due = item.netAmount - (item.discount || 0);
+    const due = item.isCreditSale ? item.netAmount : 0;
     if (due <= 0) return '—';
     return `৳ ${due.toLocaleString('en-IN')}`;
   }
 
   getDueColor(item: SalesOrder): string {
-    const due = item.netAmount - (item.discount || 0);
-    return due > 0 ? '#a16207' : '#9ca3af';
+    return item.isCreditSale && item.netAmount > 0 ? '#a16207' : '#9ca3af';
   }
 
   openNew() {
-    this.currentEntity.set({});
-    this.drawerMode.set('new');
-    this.drawerOpen.set(true);
+    this.editId.set(null);
+    this.formOpen.set(true);
   }
 
   openView(item: SalesOrder) {
@@ -498,9 +506,13 @@ export class SalesOrderListComponent implements OnInit {
   }
 
   openEdit(item: SalesOrder) {
-    this.currentEntity.set({ ...item });
-    this.drawerMode.set('edit');
-    this.drawerOpen.set(true);
+    this.editId.set(item.id);
+    this.formOpen.set(true);
+  }
+
+  onFormSaved() {
+    this.formOpen.set(false);
+    this.api.getAll<SalesOrder>('salesorders').subscribe(d => this.items.set(d.items));
   }
 
   formatMoney(val: number): string {

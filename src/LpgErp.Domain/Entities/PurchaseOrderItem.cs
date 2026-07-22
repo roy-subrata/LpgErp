@@ -11,4 +11,8 @@ public class PurchaseOrderItem : BaseEntity
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice => OrderedQuantity * UnitPrice;
     public int DamagedQuantity { get; set; }
+    /// <summary>Units confirmed missing/lost in transit during receiving (distinct from damaged units that arrived).</summary>
+    public int MissingQuantity { get; set; }
+    /// <summary>Ordered units not yet received — the outstanding short-delivery balance.</summary>
+    public int ShortQuantity => OrderedQuantity - ReceivedQuantity;
 }

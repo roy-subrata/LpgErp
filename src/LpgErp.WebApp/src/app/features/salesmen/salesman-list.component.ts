@@ -88,7 +88,7 @@ import { FinancialReport } from '../../core/models';
             @for (item of pagedItems(); track item.id || $index) {
               <tr class="data-row" (click)="openView(item)">
                 <td><span class="main-text">{{ item.name }}</span></td>
-                <td><span class="mono-text">{{ item.code }}</span></td>
+                <td><span class="mono-text">{{ item.employeeCode }}</span></td>
                 <td><span class="muted-text">{{ item.phone }}</span></td>
                 <td>
                   <span class="badge" [style.background]="item.isActive ? '#f0fdf4' : '#f4f5f7'" [style.color]="item.isActive ? '#15803d' : '#6b7280'">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
@@ -209,8 +209,10 @@ export class SalesmanListComponent implements OnInit {
 
   readonly drawerFields: DrawerField[] = [
     { key: 'name', label: 'Name', type: 'text', required: true },
-    { key: 'code', label: 'Code', type: 'text', required: true, mono: true },
+    { key: 'employeeCode', label: 'Code', type: 'text', required: true, mono: true },
     { key: 'phone', label: 'Phone', type: 'text' },
+    { key: 'dailyCommissionRate', label: 'Daily Commission Rate', type: 'number' },
+    { key: 'dailyAllowance', label: 'Daily Allowance', type: 'number' },
     { key: 'isActive', label: 'Active', type: 'toggle' },
   ];
 
@@ -226,7 +228,7 @@ export class SalesmanListComponent implements OnInit {
     const tab = this.activeTab();
     const q = this.query().toLowerCase();
     if (tab) list = list.filter(i => String(i.isActive) === tab);
-    if (q) list = list.filter(i => ['name', 'code', 'phone'].some(f => String(i[f] ?? '').toLowerCase().includes(q)));
+    if (q) list = list.filter(i => ['name', 'employeeCode', 'phone'].some(f => String(i[f] ?? '').toLowerCase().includes(q)));
     return list;
   });
 

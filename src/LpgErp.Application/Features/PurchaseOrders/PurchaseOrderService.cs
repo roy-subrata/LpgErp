@@ -86,6 +86,10 @@ public class PurchaseOrderService : IPurchaseOrderService
 
         order.TotalAmount = order.Items.Sum(i => i.TotalPrice);
 
+        var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
+        if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
+        ApplyCommission(order, supplier);
+
         await _context.PurchaseOrders.AddAsync(order, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -101,6 +105,14 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (entity is null) return Result<PurchaseOrderDto>.Failure("Purchase order not found.");
         if (entity.Status != PurchaseOrderStatus.Draft)
             return Result<PurchaseOrderDto>.Failure("Only draft orders can be updated.");
+
+        // Refund any commission previously applied to the original supplier before the order is re-priced/re-assigned.
+        if (entity.CommissionApplied > 0)
+        {
+            var originalSupplier = await _context.Suppliers.FindAsync([entity.SupplierId], cancellationToken);
+            if (originalSupplier is not null) originalSupplier.CommissionBalance += entity.CommissionApplied;
+            entity.CommissionApplied = 0;
+        }
 
         entity.SupplierId = request.SupplierId;
         entity.WarehouseId = request.WarehouseId;
@@ -122,6 +134,11 @@ public class PurchaseOrderService : IPurchaseOrderService
         }).ToList();
 
         entity.TotalAmount = entity.Items.Sum(i => i.TotalPrice);
+
+        var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
+        if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
+        ApplyCommission(entity, supplier);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(id, cancellationToken);
@@ -133,6 +150,14 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (entity is null) return Result.Failure("Purchase order not found.");
         if (entity.Status != PurchaseOrderStatus.Draft)
             return Result.Failure("Only draft orders can be deleted.");
+
+        // Return any applied commission to the supplier's balance since the order is being removed.
+        if (entity.CommissionApplied > 0)
+        {
+            var supplier = await _context.Suppliers.FindAsync([entity.SupplierId], cancellationToken);
+            if (supplier is not null) supplier.CommissionBalance += entity.CommissionApplied;
+            entity.CommissionApplied = 0;
+        }
 
         _context.PurchaseOrders.Remove(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -163,6 +188,12 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (entity.Status != PurchaseOrderStatus.Confirmed && entity.Status != PurchaseOrderStatus.InTransit && entity.Status != PurchaseOrderStatus.PartiallyReceived)
             return Result<PurchaseOrderDto>.Failure("Order cannot be received in current status.");
 
+        var supplier = await _context.Suppliers.FindAsync([entity.SupplierId], cancellationToken);
+        decimal commissionAccrued = 0m;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
         foreach (var receiveItem in request.Items)
         {
             var orderItem = entity.Items.FirstOrDefault(i => i.ProductId == receiveItem.ProductId);
@@ -170,6 +201,7 @@ public class PurchaseOrderService : IPurchaseOrderService
             {
                 orderItem.ReceivedQuantity += receiveItem.ReceivedQuantity;
                 orderItem.DamagedQuantity += receiveItem.DamagedQuantity;
+                orderItem.MissingQuantity += receiveItem.MissingQuantity;
 
                 var goodQuantity = receiveItem.ReceivedQuantity - receiveItem.DamagedQuantity;
                 if (goodQuantity > 0)
@@ -188,7 +220,17 @@ public class PurchaseOrderService : IPurchaseOrderService
                     }
 
                     var product = await _context.Products.FindAsync([orderItem.ProductId], cancellationToken);
-                    if (product is not null) product.CurrentStock += goodQuantity;
+                    if (product is not null)
+                    {
+                        product.CurrentStock += goodQuantity;
+
+                        // Commission is granted per physical cylinder received (empty cylinders and new packages carry a cylinder).
+                        if (supplier is not null && supplier.CommissionPerCylinder > 0
+                            && (product.Type == ProductType.EmptyCylinder || product.Type == ProductType.NewPackage))
+                        {
+                            commissionAccrued += goodQuantity * supplier.CommissionPerCylinder;
+                        }
+                    }
 
                     await _context.StockMovements.AddAsync(new StockMovement
                     {
@@ -211,9 +253,36 @@ public class PurchaseOrderService : IPurchaseOrderService
             ? PurchaseOrderStatus.Received
             : PurchaseOrderStatus.PartiallyReceived;
 
+        if (commissionAccrued > 0 && supplier is not null)
+        {
+            entity.CommissionEarned += commissionAccrued;
+            supplier.CommissionBalance += commissionAccrued;
+        }
+
         entity.ReceivedDate = DateTime.UtcNow;
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         return await GetByIdAsync(id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Draws down the supplier's outstanding commission balance against this order's payable
+    /// (goods + transportation), recording the deducted amount on the order.
+    /// </summary>
+    private static void ApplyCommission(PurchaseOrder order, Supplier supplier)
+    {
+        var payable = order.TotalAmount + order.TransportationCost;
+        var applied = Math.Min(supplier.CommissionBalance, payable);
+        if (applied <= 0) return;
+
+        order.CommissionApplied = applied;
+        supplier.CommissionBalance -= applied;
     }
 }

@@ -24,6 +24,7 @@ export class CylinderListComponent {
     fields: [
       { key: 'brandId', label: 'Brand', type: 'select', endpoint: 'brands', optionLabel: 'name' },
       { key: 'cylinderSizeId', label: 'Cylinder Size', type: 'select', endpoint: 'cylindersizes', optionLabel: 'name' },
+      { key: 'currentWarehouseId', label: 'Warehouse', type: 'select', endpoint: 'warehouses', optionLabel: 'name' },
       { key: 'serialNumber', label: 'Serial Number', type: 'text', required: true, mono: true },
       { key: 'status', label: 'Status', type: 'select', options: [{ value: 0, label: 'Available' }, { value: 1, label: 'On Load' }, { value: 2, label: 'With Customer' }, { value: 3, label: 'Damaged' }] },
       { key: 'hasGas', label: 'Has Gas', type: 'toggle' },

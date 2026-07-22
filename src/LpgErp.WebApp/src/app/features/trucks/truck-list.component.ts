@@ -14,17 +14,17 @@ export class TruckListComponent {
     title: 'Trucks',
     singular: 'Truck',
     cols: [
-      { key: 'plateNumber', label: 'Plate Number', kind: 'main' },
+      { key: 'registrationNumber', label: 'Registration', kind: 'main' },
       { key: 'name', label: 'Name', kind: 'text' },
-      { key: 'capacity', label: 'Capacity', kind: 'num' },
+      { key: 'phone', label: 'Phone', kind: 'text' },
       { key: 'isActive', label: 'Status', kind: 'badge', badgeMap: { true: ['Active', '#f0fdf4', '#15803d'], false: ['Inactive', '#f4f5f7', '#6b7280'] } },
     ],
     fields: [
-      { key: 'plateNumber', label: 'Plate Number', type: 'text', required: true, mono: true },
+      { key: 'registrationNumber', label: 'Registration Number', type: 'text', required: true, mono: true },
       { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'capacity', label: 'Capacity', type: 'number' },
+      { key: 'phone', label: 'Phone', type: 'text' },
       { key: 'isActive', label: 'Active', type: 'toggle' },
     ],
   };
-  readonly searchFields = ['plateNumber', 'name'];
+  readonly searchFields = ['registrationNumber', 'name'];
 }
