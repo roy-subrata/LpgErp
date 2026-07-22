@@ -36,6 +36,7 @@ public class VehicleLoadingService : IVehicleLoadingService
         var query = _context.VehicleLoadings
             .Where(v => !v.IsDeleted)
             .Include(v => v.Truck).Include(v => v.Driver).Include(v => v.Salesman).Include(v => v.Warehouse).Include(v => v.Route)
+            .Include(v => v.Items).ThenInclude(i => i.Product)
             .OrderByDescending(v => v.LoadingDate);
 
         var total = await query.CountAsync(ct);
@@ -340,6 +341,18 @@ public class VehicleLoadingService : IVehicleLoadingService
                         Reference = $"{reference} damaged",
                         MovementDate = DateTime.UtcNow
                     }, ct);
+                }
+            }
+
+            // Persist the reconciled outcome onto the loading items so the loading card/history reflects the day.
+            foreach (var loadingItem in loading.Items)
+            {
+                var reported = request.Items.FirstOrDefault(i => i.ProductId == loadingItem.ProductId);
+                if (reported is not null)
+                {
+                    loadingItem.SoldQuantity = reported.SoldQuantity;
+                    loadingItem.ReturnedQuantity = reported.ReturnedQuantity;
+                    loadingItem.DamagedQuantity = reported.DamagedQuantity;
                 }
             }
 

@@ -207,6 +207,10 @@ public class SalesOrderService : ISalesOrderService
                     var product = await _context.Products.FindAsync([item.ProductId], cancellationToken);
                     if (product is not null) product.CurrentStock -= item.Quantity;
 
+                    // Live-update the loading's sold counter so the vehicle card shows real progress.
+                    var loadingItem = loading.Items.FirstOrDefault(l => l.ProductId == item.ProductId);
+                    if (loadingItem is not null) loadingItem.SoldQuantity += item.Quantity;
+
                     await _context.StockMovements.AddAsync(new StockMovement
                     {
                         ProductId = item.ProductId,

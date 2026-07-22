@@ -81,7 +81,7 @@ interface LoadItemRow {
               <span class="footer-label">Empties</span>
               <span class="footer-val">{{ card.empties }}</span>
             </div>
-            <button class="footer-action" [style.background]="card.actionBg" [style.color]="card.actionColor" [style.border-color]="card.actionBorder">
+            <button class="footer-action" [style.background]="card.actionBg" [style.color]="card.actionColor" [style.border-color]="card.actionBorder" (click)="onCardAction(card.id)">
               {{ card.actionLabel }}
             </button>
           </div>
@@ -146,6 +146,15 @@ interface LoadItemRow {
               </select>
             </div>
             <div class="form-group">
+              <label class="form-label">Warehouse</label>
+              <select class="form-select" [(ngModel)]="selectedWarehouseId">
+                <option value="">Select warehouse</option>
+                @for (w of warehouses(); track w.id) {
+                  <option [value]="w.id">{{ w.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
               <label class="form-label">Loading Date</label>
               <input type="date" class="form-input" [(ngModel)]="loadingDate" />
             </div>
@@ -190,13 +199,97 @@ interface LoadItemRow {
 
           <div class="notice-amber">
             <span class="notice-icon">⚠</span>
-            <span>Stock will be reserved from warehouse upon confirmation. Ensure inventory is available before proceeding.</span>
+            <span>Stock is deducted from the warehouse upon confirmation. Ensure inventory is available before proceeding.</span>
           </div>
+          @if (formError()) {
+            <div class="notice-error">{{ formError() }}</div>
+          }
         </div>
 
         <div class="drawer-footer">
           <button class="btn-cancel" (click)="drawerOpen.set(false)">Cancel</button>
-          <button class="btn-confirm" (click)="confirmLoading()">Confirm loading</button>
+          <button class="btn-confirm" [disabled]="saving()" (click)="confirmLoading()">{{ saving() ? 'Saving…' : 'Confirm loading' }}</button>
+        </div>
+      </div>
+    }
+
+    @if (closingOpen()) {
+      <div class="drawer-overlay" (click)="closingOpen.set(false)"></div>
+      <div class="drawer-panel">
+        <div class="drawer-header">
+          <div>
+            <h2 class="drawer-title">Vehicle Closing — {{ closingLoading()?.truckName }}</h2>
+            <span class="drawer-ref">{{ closingLoading()?.loadingDate | date:'mediumDate' }}</span>
+          </div>
+          <button class="drawer-close" (click)="closingOpen.set(false)">✕</button>
+        </div>
+
+        <div class="drawer-body">
+          <div class="section-label">Reconciliation</div>
+          <div class="items-header close-grid">
+            <span class="items-col-label">Product</span>
+            <span class="items-col-label qty">Loaded</span>
+            <span class="items-col-label qty">Sold</span>
+            <span class="items-col-label qty">Returned</span>
+            <span class="items-col-label qty">Damaged</span>
+          </div>
+          <div class="load-items">
+            @for (row of closingRows(); track row.productId) {
+              <div class="load-row close-grid">
+                <span class="close-product">{{ row.productName }}</span>
+                <span class="close-loaded">{{ row.loadedQuantity }}</span>
+                <input type="number" class="form-input qty-input" min="0" [(ngModel)]="row.soldQuantity" />
+                <input type="number" class="form-input qty-input" min="0" [(ngModel)]="row.returnedQuantity" />
+                <input type="number" class="form-input qty-input" min="0" [(ngModel)]="row.damagedQuantity" />
+              </div>
+            }
+          </div>
+          <p class="close-hint">Sold is the day's total including recorded vehicle sales orders; only unrecorded cash sales are deducted again at closing.</p>
+
+          <div class="section-label">Collections</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Cash Collected (৳)</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeCash" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Credit Sales (৳)</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeCredit" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Outstanding (৳)</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeOutstanding" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Empty Cylinders Returned</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeEmpties" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cylinder Exchanges</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeExchanges" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Leakage Count</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="closeLeakage" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Variance</label>
+              <input type="number" class="form-input" [(ngModel)]="closeVariance" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <input type="text" class="form-input" [(ngModel)]="closeNotes" />
+            </div>
+          </div>
+
+          @if (closeError()) {
+            <div class="notice-error">{{ closeError() }}</div>
+          }
+        </div>
+
+        <div class="drawer-footer">
+          <button class="btn-cancel" (click)="closingOpen.set(false)">Cancel</button>
+          <button class="btn-confirm" [disabled]="saving()" (click)="submitClosing()">{{ saving() ? 'Closing…' : 'Confirm closing' }}</button>
         </div>
       </div>
     }
@@ -275,6 +368,12 @@ interface LoadItemRow {
     .summary-label { font-size: 12px; color: var(--text-muted); }
     .summary-value { font-size: 13px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
     .notice-amber { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: var(--amber-bg); border: 1px solid #fde68a; border-radius: 8px; font-size: 12px; color: var(--amber-fg); line-height: 1.4; }
+    .notice-error { margin-top: 12px; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; font-size: 12px; color: #b91c1c; line-height: 1.4; }
+    .close-grid { grid-template-columns: 1fr 52px 64px 64px 64px !important; }
+    .close-product { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .close-loaded { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); text-align: center; }
+    .close-hint { font-size: 11px; color: var(--text-muted); margin: 6px 0 18px; line-height: 1.4; }
+    .btn-confirm:disabled { opacity: 0.6; cursor: default; }
     .notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--border); }
     .btn-cancel { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -289,6 +388,7 @@ export class VehicleLoadingListComponent implements OnInit {
   private router = inject(Router);
 
   items = signal<VehicleLoading[]>([]);
+  closingsByLoading = signal<Record<string, any>>({});
   drawerOpen = signal(false);
   draftRef = 'LD-' + Math.floor(1000 + Math.random() * 9000);
 
@@ -297,15 +397,33 @@ export class VehicleLoadingListComponent implements OnInit {
   salesmen = signal<Salesman[]>([]);
   routes = signal<Route[]>([]);
   products = signal<Product[]>([]);
+  warehouses = signal<any[]>([]);
 
   selectedVehicleId = '';
   selectedRouteId = '';
   selectedSalesmanId = '';
   selectedDriverId = '';
+  selectedWarehouseId = '';
   loadingDate = new Date().toISOString().slice(0, 10);
   departureTime = '08:00';
+  saving = signal(false);
+  formError = signal('');
 
   loadRows = signal<LoadItemRow[]>([{ productId: '', quantity: 1 }]);
+
+  // Closing drawer state
+  closingOpen = signal(false);
+  closingLoading = signal<VehicleLoading | null>(null);
+  closingRows = signal<any[]>([]);
+  closeCash = 0;
+  closeCredit = 0;
+  closeOutstanding = 0;
+  closeEmpties = 0;
+  closeExchanges = 0;
+  closeLeakage = 0;
+  closeVariance = 0;
+  closeNotes = '';
+  closeError = signal('');
 
   lineCount = computed(() => this.loadRows().filter(r => r.productId).length);
   totalCylinders = computed(() => this.loadRows().reduce((sum, r) => sum + (r.quantity || 0), 0));
@@ -328,6 +446,11 @@ export class VehicleLoadingListComponent implements OnInit {
     this.api.getAll<VehicleLoading>('vehicleloadings').subscribe(data => {
       this.items.set(data.items);
     });
+    this.api.getAll<any>('vehicleclosings', 1, 100).subscribe(data => {
+      const map: Record<string, any> = {};
+      for (const c of data.items) map[c.vehicleLoadingId] = c;
+      this.closingsByLoading.set(map);
+    });
   }
 
   loadReferenceData() {
@@ -336,6 +459,7 @@ export class VehicleLoadingListComponent implements OnInit {
     this.api.getAllList<Salesman>('salesmen').subscribe(d => this.salesmen.set(d));
     this.api.getAllList<Route>('routes').subscribe(d => this.routes.set(d));
     this.api.getAllList<Product>('products').subscribe(d => this.products.set(d));
+    this.api.getAllList<any>('warehouses').subscribe(d => this.warehouses.set(d));
   }
 
   mapToCard(v: VehicleLoading): any {
@@ -351,13 +475,14 @@ export class VehicleLoadingListComponent implements OnInit {
     });
     const nameParts = (v.salesmanName || '').split(' ');
     const driverParts = (v.driverName || '').split(' ');
+    const closing = this.closingsByLoading()[v.id];
     return {
       id: v.id,
       plate: v.truckName,
       status: s.label,
       statusBg: s.bg,
       statusColor: s.color,
-      route: v.warehouseName || '—',
+      route: (v as any).routeName || v.warehouseName || '—',
       departed: v.loadingDate ? new Date(v.loadingDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '—',
       iconBg: '#fff7ed',
       salesmanName: v.salesmanName,
@@ -365,9 +490,9 @@ export class VehicleLoadingListComponent implements OnInit {
       driverName: v.driverName,
       driverInitials: (driverParts[0]?.[0] ?? '') + (driverParts[1]?.[0] ?? ''),
       items,
-      cash: 0,
-      credit: 0,
-      empties: 0,
+      cash: closing?.cashCollected ?? 0,
+      credit: closing?.creditSales ?? 0,
+      empties: closing?.returnedEmptyCylinders ?? 0,
       actionLabel: s.label === 'Returned' ? 'View' : 'Closing',
       actionBg: 'var(--fill-subtle)',
       actionColor: 'var(--text-secondary)',
@@ -384,26 +509,124 @@ export class VehicleLoadingListComponent implements OnInit {
   }
 
   onMenu(id: string) {
-    this.router.navigate(['/vehicle-loadings', id]);
+    this.onCardAction(id);
+  }
+
+  onCardAction(id: string) {
+    const loading = this.items().find(v => v.id === id);
+    if (!loading) return;
+    if (loading.status === 2) {
+      this.router.navigate(['/vehicle-closings']);
+      return;
+    }
+    this.openClosing(loading);
+  }
+
+  openClosing(loading: VehicleLoading) {
+    this.closingLoading.set(loading);
+    this.closingRows.set((loading.items || []).map(it => ({
+      productId: it.productId,
+      productName: it.productName,
+      loadedQuantity: it.loadedQuantity,
+      // Prefill: sold from recorded vehicle sales orders, the rest assumed returned.
+      soldQuantity: it.soldQuantity ?? 0,
+      returnedQuantity: Math.max(0, it.loadedQuantity - (it.soldQuantity ?? 0)),
+      damagedQuantity: 0,
+    })));
+    this.closeCash = 0;
+    this.closeCredit = 0;
+    this.closeOutstanding = 0;
+    this.closeEmpties = 0;
+    this.closeExchanges = 0;
+    this.closeLeakage = 0;
+    this.closeVariance = 0;
+    this.closeNotes = '';
+    this.closeError.set('');
+    this.closingOpen.set(true);
+  }
+
+  submitClosing() {
+    const loading = this.closingLoading();
+    if (!loading) return;
+
+    const bad = this.closingRows().find(r => r.soldQuantity + r.returnedQuantity + r.damagedQuantity > r.loadedQuantity);
+    if (bad) {
+      this.closeError.set(`Sold + returned + damaged exceeds the loaded quantity for ${bad.productName}.`);
+      return;
+    }
+
+    const payload = {
+      vehicleLoadingId: loading.id,
+      cashCollected: this.closeCash || 0,
+      creditSales: this.closeCredit || 0,
+      outstandingAmount: this.closeOutstanding || 0,
+      cylinderExchanges: this.closeExchanges || 0,
+      returnedEmptyCylinders: this.closeEmpties || 0,
+      damagedCount: this.closingRows().reduce((s, r) => s + (r.damagedQuantity || 0), 0),
+      leakageCount: this.closeLeakage || 0,
+      variance: this.closeVariance || 0,
+      notes: this.closeNotes,
+      items: this.closingRows().map(r => ({
+        productId: r.productId,
+        loadedQuantity: r.loadedQuantity,
+        soldQuantity: r.soldQuantity || 0,
+        returnedQuantity: r.returnedQuantity || 0,
+        damagedQuantity: r.damagedQuantity || 0,
+      })),
+    };
+
+    this.saving.set(true);
+    this.closeError.set('');
+    this.api.post(`vehicleloadings/${loading.id}/close`, payload).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.closingOpen.set(false);
+        this.loadData();
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.closeError.set(e?.error?.message ?? 'Failed to close the vehicle.');
+      },
+    });
   }
 
   confirmLoading() {
+    if (!this.selectedVehicleId || !this.selectedDriverId || !this.selectedSalesmanId || !this.selectedWarehouseId) {
+      this.formError.set('Vehicle, driver, salesman, and warehouse are required.');
+      return;
+    }
+    const items = this.loadRows().filter(r => r.productId).map(r => ({
+      productId: r.productId,
+      loadedQuantity: r.quantity,
+    }));
+    if (items.length === 0) {
+      this.formError.set('Add at least one load item.');
+      return;
+    }
+
     const payload = {
-      vehicleId: this.selectedVehicleId,
-      routeId: this.selectedRouteId,
-      salesmanId: this.selectedSalesmanId,
+      truckId: this.selectedVehicleId,
       driverId: this.selectedDriverId,
-      loadingDate: this.loadingDate,
-      departureTime: this.departureTime,
-      items: this.loadRows().filter(r => r.productId).map(r => ({
-        productId: r.productId,
-        loadedQuantity: r.quantity,
-      })),
+      salesmanId: this.selectedSalesmanId,
+      warehouseId: this.selectedWarehouseId,
+      routeId: this.selectedRouteId || null,
+      loadingDate: `${this.loadingDate}T${this.departureTime || '08:00'}:00`,
+      items,
     };
-    this.api.post('vehicleloadings', payload).subscribe(() => {
-      this.drawerOpen.set(false);
-      this.loadData();
-      this.resetForm();
+
+    this.saving.set(true);
+    this.formError.set('');
+    this.api.post('vehicleloadings', payload).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.drawerOpen.set(false);
+        this.loadData();
+        this.resetForm();
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.formError.set(e?.error?.message ?? 'Failed to create the loading.');
+      },
     });
   }
 
@@ -412,8 +635,10 @@ export class VehicleLoadingListComponent implements OnInit {
     this.selectedRouteId = '';
     this.selectedSalesmanId = '';
     this.selectedDriverId = '';
+    this.selectedWarehouseId = '';
     this.loadingDate = new Date().toISOString().slice(0, 10);
     this.departureTime = '08:00';
     this.loadRows.set([{ productId: '', quantity: 1 }]);
+    this.formError.set('');
   }
 }
