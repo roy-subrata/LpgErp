@@ -129,6 +129,7 @@ public class BrandSalesDto
 
 public class VehicleReconciliationDto
 {
+    public Guid VehicleLoadingId { get; set; }
     public DateTime Date { get; set; }
     public string TruckName { get; set; } = string.Empty;
     public string DriverName { get; set; } = string.Empty;

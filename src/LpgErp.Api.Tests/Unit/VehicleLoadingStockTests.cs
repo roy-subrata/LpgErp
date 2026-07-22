@@ -8,6 +8,7 @@ using LpgErp.Infrastructure.Persistence;
 using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -16,7 +17,7 @@ namespace LpgErp.Api.Tests.Unit;
 public class VehicleLoadingStockTests
 {
     private readonly InMemoryDatabaseRoot _root = new();
-    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile())).CreateMapper();
+    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile()), NullLoggerFactory.Instance).CreateMapper();
 
     private LpgErpDbContext NewContext() =>
         new(new DbContextOptionsBuilder<LpgErpDbContext>()
@@ -205,6 +206,52 @@ public class VehicleLoadingStockTests
         }
 
         (await WarehouseStockAsync()).Should().Be(60); // 50 + 10 returned, unchanged by rejected attempts
+    }
+
+    [Fact]
+    public async Task Close_AutoGeneratesDailySummaryAndSettlements()
+    {
+        await SeedAsync(warehouseStock: 100);
+
+        // Give the salesman a commission rate for the auto-settlement computation.
+        using (var c = NewContext())
+        {
+            var sm = await c.Salesmen.FindAsync(_salesmanId);
+            sm!.DailyCommissionRate = 2.5m;
+            sm.DailyAllowance = 400m;
+            await c.SaveChangesAsync();
+        }
+
+        Guid loadingId;
+        using (var c = NewContext())
+            loadingId = (await NewService(c).CreateAsync(LoadingRequest(50))).Data!.Id;
+        using (var c = NewContext())
+            await NewService(c).CloseAsync(loadingId, new CreateVehicleClosingRequest
+            {
+                VehicleLoadingId = loadingId,
+                CashCollected = 30000m,
+                CreditSales = 10000m,
+                OutstandingAmount = 2000m,
+                ReturnedEmptyCylinders = 5,
+                Items = [new CreateVehicleClosingItemRequest { ProductId = _productId, LoadedQuantity = 50, SoldQuantity = 40, ReturnedQuantity = 10, DamagedQuantity = 0 }]
+            });
+
+        using var check = NewContext();
+        var summary = await check.DailySalesSummaries.SingleAsync(d => d.VehicleLoadingId == loadingId);
+        summary.TotalSales.Should().Be(40000m);
+        summary.CashSales.Should().Be(30000m);
+        summary.CreditSales.Should().Be(10000m);
+        summary.PackagesSold.Should().Be(40);       // product type is NewPackage
+        summary.DueCreated.Should().Be(12000m);     // credit + outstanding
+        summary.StockReturned.Should().Be(10);
+
+        var salesmanSettlement = await check.SalesmanSettlements.SingleAsync(s => s.SalesmanId == _salesmanId);
+        salesmanSettlement.TotalSales.Should().Be(40000m);
+        salesmanSettlement.Collection.Should().Be(30000m);
+        salesmanSettlement.Commission.Should().Be(1000m); // 40000 * 2.5%
+        salesmanSettlement.DailyAllowance.Should().Be(400m);
+
+        (await check.DriverSettlements.CountAsync(d => d.VehicleLoadingId == loadingId)).Should().Be(1);
     }
 
     [Fact]

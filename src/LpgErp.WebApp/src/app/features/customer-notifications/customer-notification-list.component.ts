@@ -11,8 +11,16 @@ import { CustomerNotificationFormComponent } from './customer-notification-form.
   template: `
     <div class="page-header">
       <h1>Customer Notifications</h1>
-      <button class="btn-primary" (click)="onNew()">+ New Notification</button>
+      <div class="header-actions">
+        <button class="btn-secondary" [disabled]="generating()" (click)="onGenerate()">
+          {{ generating() ? 'Scanning…' : '⚡ Generate' }}
+        </button>
+        <button class="btn-primary" (click)="onNew()">+ New Notification</button>
+      </div>
     </div>
+    @if (generateResult()) {
+      <div class="generate-banner">{{ generateResult() }}</div>
+    }
     <app-customer-notification-form [open]="showForm()" [entityId]="editingId()" (saved)="onSaved()" (close)="showForm.set(false)" />
     <div class="table-container">
       <table>
@@ -50,7 +58,11 @@ import { CustomerNotificationFormComponent } from './customer-notification-form.
   `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .header-actions { display: flex; gap: 0.5rem; }
     .btn-primary { background: #1a1a2e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    .btn-secondary { background: white; color: #1a1a2e; border: 1px solid #1a1a2e; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    .btn-secondary:disabled { opacity: 0.6; cursor: default; }
+    .generate-banner { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 0.6rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
     .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #eee; }
@@ -64,6 +76,24 @@ export class CustomerNotificationListComponent implements OnInit {
   items = signal<CustomerNotification[]>([]);
   showForm = signal(false);
   editingId = signal<string | null>(null);
+  generating = signal(false);
+  generateResult = signal('');
+
+  onGenerate() {
+    this.generating.set(true);
+    this.generateResult.set('');
+    this.api.post<number>('customernotifications/generate', {}).subscribe({
+      next: (count) => {
+        this.generating.set(false);
+        this.generateResult.set(count > 0 ? `${count} notification(s) generated.` : 'No new notifications — everything is up to date.');
+        this.loadData();
+      },
+      error: () => {
+        this.generating.set(false);
+        this.generateResult.set('Generation failed.');
+      },
+    });
+  }
 
   ngOnInit() {
     this.loadData();
@@ -96,7 +126,14 @@ export class CustomerNotificationListComponent implements OnInit {
   }
 
   notificationType(type: number): string {
-    const map: Record<number, string> = { 0: 'LowStock', 1: 'PriceChange', 2: 'DeliveryUpdate', 3: 'PaymentReminder', 4: 'General' };
+    // Mirrors backend NotificationType enum.
+    const map: Record<number, string> = {
+      0: 'Payment Due',
+      1: 'Possible Refill Time',
+      2: 'Cylinder Return Reminder',
+      3: 'Outstanding Empty Cylinder',
+      4: 'Credit Limit Exceeded',
+    };
     return map[type] ?? 'Unknown';
   }
 }

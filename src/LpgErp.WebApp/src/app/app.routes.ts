@@ -18,6 +18,16 @@ export const routes: Routes = [
       import('./features/vehicle-loadings/vehicle-loading-list.component').then(m => m.VehicleLoadingListComponent),
   },
   {
+    path: 'vehicle-loadings/:id',
+    loadComponent: () =>
+      import('./features/vehicle-loadings/vehicle-loading-detail.component').then(m => m.VehicleLoadingDetailComponent),
+  },
+  {
+    path: 'inventory',
+    loadComponent: () =>
+      import('./features/inventory/inventory.component').then(m => m.InventoryComponent),
+  },
+  {
     path: 'loading-history',
     loadComponent: () =>
       import('./features/loading-history/loading-history.component').then(m => m.LoadingHistoryComponent),

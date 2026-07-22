@@ -509,14 +509,14 @@ export class VehicleLoadingListComponent implements OnInit {
   }
 
   onMenu(id: string) {
-    this.onCardAction(id);
+    this.router.navigate(['/vehicle-loadings', id]);
   }
 
   onCardAction(id: string) {
     const loading = this.items().find(v => v.id === id);
     if (!loading) return;
     if (loading.status === 2) {
-      this.router.navigate(['/vehicle-closings']);
+      this.router.navigate(['/vehicle-loadings', id]);
       return;
     }
     this.openClosing(loading);

@@ -8,6 +8,7 @@ using LpgErp.Infrastructure.Persistence;
 using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -18,7 +19,7 @@ public class PurchaseOrderCommissionTests
     // Shared root so every context in a test sees the same in-memory store; a new context
     // per operation mirrors the app's scoped-per-request DbContext lifecycle.
     private readonly InMemoryDatabaseRoot _root = new();
-    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile())).CreateMapper();
+    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile()), NullLoggerFactory.Instance).CreateMapper();
 
     private LpgErpDbContext NewContext() =>
         new(new DbContextOptionsBuilder<LpgErpDbContext>()

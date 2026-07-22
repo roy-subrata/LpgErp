@@ -358,6 +358,73 @@ public class VehicleLoadingService : IVehicleLoadingService
 
             loading.Status = VehicleLoadingStatus.Returned;
 
+            // ---- Auto-generate the day's operational records from the reconciliation ----
+            var productIds = request.Items.Select(i => i.ProductId).ToList();
+            var typeByProduct = await _context.Products
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Type, ct);
+            int SoldOfType(ProductType t) => request.Items
+                .Where(i => typeByProduct.GetValueOrDefault(i.ProductId) == t)
+                .Sum(i => i.SoldQuantity);
+
+            var totalSales = request.CashCollected + request.CreditSales;
+            var summaryDate = closing.ClosingDate.Date;
+
+            if (!await _context.DailySalesSummaries.AnyAsync(d => d.VehicleLoadingId == loadingId && !d.IsDeleted, ct))
+            {
+                await _context.DailySalesSummaries.AddAsync(new DailySalesSummary
+                {
+                    SummaryDate = summaryDate,
+                    VehicleLoadingId = loadingId,
+                    TruckId = loading.TruckId,
+                    DriverId = loading.DriverId,
+                    SalesmanId = loading.SalesmanId,
+                    TotalSales = totalSales,
+                    CashSales = request.CashCollected,
+                    CreditSales = request.CreditSales,
+                    PackagesSold = SoldOfType(ProductType.NewPackage),
+                    RefillsSold = SoldOfType(ProductType.GasRefill),
+                    EmptyCylindersSold = SoldOfType(ProductType.EmptyCylinder),
+                    AccessoriesSold = SoldOfType(ProductType.Accessory),
+                    PaymentsCollected = request.CashCollected,
+                    DueCreated = request.CreditSales + request.OutstandingAmount,
+                    CylinderBalance = request.ReturnedEmptyCylinders,
+                    OutstandingCylinders = request.Items.Sum(i =>
+                        Math.Max(0, loadedByProduct.GetValueOrDefault(i.ProductId) - i.SoldQuantity - i.ReturnedQuantity - i.DamagedQuantity)),
+                    StockReturned = request.Items.Sum(i => i.ReturnedQuantity),
+                    Notes = $"Auto-generated from vehicle closing {reference}"
+                }, ct);
+            }
+
+            var salesman = await _context.Salesmen.FindAsync([loading.SalesmanId], ct);
+            if (salesman is not null &&
+                !await _context.SalesmanSettlements.AnyAsync(s => s.SalesmanId == loading.SalesmanId && s.SettlementDate == summaryDate && !s.IsDeleted, ct))
+            {
+                await _context.SalesmanSettlements.AddAsync(new SalesmanSettlement
+                {
+                    SalesmanId = loading.SalesmanId,
+                    SettlementDate = summaryDate,
+                    TotalSales = totalSales,
+                    Collection = request.CashCollected,
+                    Commission = Math.Round(totalSales * salesman.DailyCommissionRate / 100m, 2),
+                    DailyAllowance = salesman.DailyAllowance,
+                    Bonus = 0,
+                    Notes = $"Auto-generated from vehicle closing {reference}"
+                }, ct);
+            }
+
+            if (!await _context.DriverSettlements.AnyAsync(d => d.VehicleLoadingId == loadingId && !d.IsDeleted, ct))
+            {
+                await _context.DriverSettlements.AddAsync(new DriverSettlement
+                {
+                    DriverId = loading.DriverId,
+                    SettlementDate = summaryDate,
+                    VehicleLoadingId = loadingId,
+                    TripCount = 1,
+                    Notes = $"Auto-generated from vehicle closing {reference} — enter fuel and trip costs"
+                }, ct);
+            }
+
             await _context.VehicleClosings.AddAsync(closing, ct);
             await _unitOfWork.SaveChangesAsync(ct);
             await _unitOfWork.CommitTransactionAsync(ct);

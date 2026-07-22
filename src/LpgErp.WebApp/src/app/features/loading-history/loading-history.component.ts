@@ -87,7 +87,7 @@ import { VehicleReconciliation, VehicleLoadingReport, FinancialReport } from '..
                   </span>
                 </td>
                 <td class="action-cell">
-                  <button class="view-btn" routerLink="/vehicle-loadings">→</button>
+                  <button class="view-btn" [routerLink]="row.loadingId ? ['/vehicle-loadings', row.loadingId] : ['/vehicle-loadings']">→</button>
                 </td>
               </tr>
             } @empty {
@@ -252,6 +252,7 @@ export class LoadingHistoryComponent implements OnInit {
       const statusMap: Record<string, string> = { Loading: 'Loading', Selling: 'Selling', Returned: 'Closed', Closed: 'Closed', Cancelled: 'Cancelled' };
       const items = data.recon.map((r: any) => ({
         id: r.truckName + r.date,
+        loadingId: r.vehicleLoadingId,
         truckName: r.truckName,
         date: r.date,
         dateFormatted: new Date(r.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -268,6 +269,7 @@ export class LoadingHistoryComponent implements OnInit {
       if (items.length === 0 && data.loading.length > 0) {
         const mapped = data.loading.map((v: any) => ({
           id: v.id,
+          loadingId: v.id,
           truckName: v.truckName,
           date: v.date,
           dateFormatted: new Date(v.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),

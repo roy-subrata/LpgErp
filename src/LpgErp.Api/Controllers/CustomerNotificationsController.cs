@@ -73,4 +73,12 @@ public class CustomerNotificationsController : ControllerBase
         if (!result.IsSuccess) return BadRequest(ApiResponse.Fail(result.Error!));
         return Ok(ApiResponse.Ok("Notification marked as read."));
     }
+
+    [HttpPost("generate")]
+    public async Task<IActionResult> Generate(CancellationToken cancellationToken)
+    {
+        var result = await _service.GenerateAsync(cancellationToken);
+        if (!result.IsSuccess) return BadRequest(ApiResponse<int>.Fail(result.Error!));
+        return Ok(ApiResponse<int>.Ok(result.Data));
+    }
 }

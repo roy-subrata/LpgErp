@@ -23,7 +23,33 @@ public static class DbSeeder
         await SeedSalesmenAsync(db, ct);
         await SeedTrucksAsync(db, ct);
         await SeedTransportCompaniesAsync(db, ct);
+        await SeedStockLevelsAsync(db, ct);
         await SeedTransactionsAsync(db, ct);
+    }
+
+    /// <summary>
+    /// Places each product's CurrentStock into the first (main) warehouse so warehouse-level
+    /// stock matches company totals and vehicle loadings/sales have stock to draw from.
+    /// </summary>
+    private static async Task SeedStockLevelsAsync(LpgErpDbContext db, CancellationToken ct)
+    {
+        if (await db.StockLevels.AnyAsync(ct)) return;
+
+        var mainWarehouse = await db.Warehouses.OrderBy(w => w.CreatedAt).FirstOrDefaultAsync(ct);
+        if (mainWarehouse is null) return;
+
+        var products = await db.Products.Where(p => !p.IsDeleted && p.CurrentStock > 0).ToListAsync(ct);
+        foreach (var product in products)
+        {
+            db.StockLevels.Add(new StockLevel
+            {
+                WarehouseId = mainWarehouse.Id,
+                ProductId = product.Id,
+                Quantity = product.CurrentStock
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static async Task<Dictionary<string, Brand>> SeedBrandsAsync(LpgErpDbContext db, CancellationToken ct)

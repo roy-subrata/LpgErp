@@ -387,6 +387,7 @@ public class ReportService : IReportService
 
         var report = closings.Select(vc => new VehicleReconciliationDto
         {
+            VehicleLoadingId = vc.VehicleLoadingId,
             Date = vc.ClosingDate,
             TruckName = vc.VehicleLoading.Truck.Name,
             DriverName = vc.VehicleLoading.Driver.Name,

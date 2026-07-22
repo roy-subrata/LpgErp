@@ -10,6 +10,7 @@ using LpgErp.Infrastructure.Persistence;
 using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -22,7 +23,7 @@ namespace LpgErp.Api.Tests.Unit;
 public class VehicleSalesInventoryTests
 {
     private readonly InMemoryDatabaseRoot _root = new();
-    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile())).CreateMapper();
+    private readonly IMapper _mapper = new MapperConfiguration(cfg => cfg.AddProfile(new MappingProfile()), NullLoggerFactory.Instance).CreateMapper();
 
     private LpgErpDbContext NewContext() =>
         new(new DbContextOptionsBuilder<LpgErpDbContext>()
