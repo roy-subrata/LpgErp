@@ -29,30 +29,18 @@ public class VehicleClosingService : IVehicleClosingService
     {
         var query = _context.VehicleClosings
             .Where(vc => !vc.IsDeleted)
-            .Include(vc => vc.VehicleLoading)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Truck)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Driver)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Salesman)
+            .Include(vc => vc.Items).ThenInclude(i => i.Product)
             .OrderByDescending(vc => vc.ClosingDate);
 
         var total = await query.CountAsync(ct);
         var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(ct);
 
-        var dtos = new List<VehicleClosingDto>();
-        foreach (var item in items)
-        {
-            var loaded = await _context.VehicleLoadingItems
-                .Where(i => i.VehicleLoadingId == item.VehicleLoadingId && !i.IsDeleted)
-                .Include(i => i.Product)
-                .ToListAsync(ct);
-
-            var full = await _context.VehicleClosings
-                .Include(vc => vc.Items).ThenInclude(i => i.Product)
-                .FirstOrDefaultAsync(vc => vc.Id == item.Id, ct);
-
-            if (full != null) dtos.Add(_mapper.Map<VehicleClosingDto>(full));
-        }
-
         return Result<PagedResult<VehicleClosingDto>>.Success(new PagedResult<VehicleClosingDto>
         {
-            Items = dtos,
+            Items = _mapper.Map<IReadOnlyList<VehicleClosingDto>>(items),
             Pagination = new PaginationMeta { PageNumber = pageNumber, PageSize = pageSize, TotalCount = total }
         });
     }
@@ -60,6 +48,9 @@ public class VehicleClosingService : IVehicleClosingService
     public async Task<Result<VehicleClosingDto>> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         var entity = await _context.VehicleClosings
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Truck)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Driver)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Salesman)
             .Include(vc => vc.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(vc => vc.Id == id && !vc.IsDeleted, ct);
 

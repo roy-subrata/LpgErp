@@ -436,6 +436,9 @@ public class VehicleLoadingService : IVehicleLoadingService
         }
 
         var result = await _context.VehicleClosings
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Truck)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Driver)
+            .Include(vc => vc.VehicleLoading).ThenInclude(vl => vl.Salesman)
             .Include(vc => vc.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(vc => vc.Id == closing.Id, ct);
 

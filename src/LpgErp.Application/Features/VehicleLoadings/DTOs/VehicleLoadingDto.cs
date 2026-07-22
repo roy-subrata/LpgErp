@@ -84,6 +84,9 @@ public class VehicleClosingDto : IMapFrom<VehicleClosing>
 {
     public Guid Id { get; set; }
     public Guid VehicleLoadingId { get; set; }
+    public string? TruckName { get; set; }
+    public string? DriverName { get; set; }
+    public string? SalesmanName { get; set; }
     public DateTime ClosingDate { get; set; }
     public decimal CashCollected { get; set; }
     public decimal CreditSales { get; set; }
@@ -98,7 +101,10 @@ public class VehicleClosingDto : IMapFrom<VehicleClosing>
 
     public void Mapping(Profile profile)
     {
-        profile.CreateMap<VehicleClosing, VehicleClosingDto>();
+        profile.CreateMap<VehicleClosing, VehicleClosingDto>()
+            .ForMember(d => d.TruckName, opt => opt.MapFrom(s => s.VehicleLoading.Truck.Name))
+            .ForMember(d => d.DriverName, opt => opt.MapFrom(s => s.VehicleLoading.Driver.Name))
+            .ForMember(d => d.SalesmanName, opt => opt.MapFrom(s => s.VehicleLoading.Salesman.Name));
     }
 }
 

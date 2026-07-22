@@ -545,8 +545,9 @@ export class EntityListComponent implements OnInit {
   }
 
   load() {
-    this.api.getAllList<any>(this.config.endpoint).subscribe(data => {
-      this.items.set(data);
+    // Use the paged GetAll every controller exposes ( /list only exists on BaseController-derived ones).
+    this.api.getAll<any>(this.config.endpoint, 1, 500).subscribe(data => {
+      this.items.set(data.items);
     });
   }
 
