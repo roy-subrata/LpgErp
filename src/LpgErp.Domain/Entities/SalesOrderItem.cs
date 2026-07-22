@@ -10,4 +10,7 @@ public class SalesOrderItem : BaseEntity
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice => Quantity * UnitPrice;
     public int? CylinderExchangeQuantity { get; set; }
+    /// <summary>For gas-refill lines: empties the customer handed over at delivery.
+    /// Null = full swap (equals Quantity); 0 = advance refill (no empty given, cylinder owed).</summary>
+    public int? EmptyReturnedQuantity { get; set; }
 }

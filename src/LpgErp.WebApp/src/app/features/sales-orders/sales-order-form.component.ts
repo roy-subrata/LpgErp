@@ -10,6 +10,8 @@ interface SalesItem {
   quantity: number;
   unitPrice: number;
   cylinderExchangeQuantity: number;
+  /** Empties handed over for refill lines. null = full swap (= qty); 0 = advance refill (cylinder owed). */
+  emptyReturnedQuantity: number | null;
 }
 
 @Component({
@@ -91,6 +93,7 @@ interface SalesItem {
             <input type="number" placeholder="Qty" [(ngModel)]="item.quantity" [name]="'qty_' + $index" required />
             <input type="number" placeholder="Price" [(ngModel)]="item.unitPrice" [name]="'price_' + $index" required step="0.01" />
             <input type="number" placeholder="Cyl Exch" [(ngModel)]="item.cylinderExchangeQuantity" [name]="'cex_' + $index" />
+            <input type="number" min="0" placeholder="Empty Rtn (= qty)" title="Empties returned for refills. Blank = full swap; 0 = advance refill (cylinder owed)." [(ngModel)]="item.emptyReturnedQuantity" [name]="'ert_' + $index" />
             <button type="button" class="btn-remove" (click)="removeItem($index)">&times;</button>
           </div>
         }
@@ -136,7 +139,7 @@ export class SalesOrderFormComponent implements OnChanges {
   notes = '';
   dueDate = '';
   transportCompanyId = '';
-  items: SalesItem[] = [{ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0 }];
+  items: SalesItem[] = [{ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0, emptyReturnedQuantity: null }];
   customers = signal<Customer[]>([]);
   warehouses = signal<Warehouse[]>([]);
   products = signal<Product[]>([]);
@@ -172,6 +175,7 @@ export class SalesOrderFormComponent implements OnChanges {
               quantity: i.quantity,
               unitPrice: i.unitPrice,
               cylinderExchangeQuantity: i.cylinderExchangeQuantity ?? 0,
+              emptyReturnedQuantity: i.emptyReturnedQuantity ?? null,
             }));
           }
         });
@@ -180,7 +184,7 @@ export class SalesOrderFormComponent implements OnChanges {
   }
 
   addItem() {
-    this.items.push({ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0 });
+    this.items.push({ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0, emptyReturnedQuantity: null });
   }
 
   removeItem(index: number) {
@@ -205,6 +209,7 @@ export class SalesOrderFormComponent implements OnChanges {
         quantity: i.quantity,
         unitPrice: i.unitPrice,
         cylinderExchangeQuantity: i.cylinderExchangeQuantity,
+        emptyReturnedQuantity: i.emptyReturnedQuantity === null || (i.emptyReturnedQuantity as any) === '' ? null : i.emptyReturnedQuantity,
       })),
     };
 
@@ -236,6 +241,6 @@ export class SalesOrderFormComponent implements OnChanges {
     this.notes = '';
     this.dueDate = '';
     this.transportCompanyId = '';
-    this.items = [{ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0 }];
+    this.items = [{ productId: '', quantity: 0, unitPrice: 0, cylinderExchangeQuantity: 0, emptyReturnedQuantity: null }];
   }
 }

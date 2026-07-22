@@ -62,6 +62,9 @@ public class CustomerCylinderLedgerService : ICustomerCylinderLedgerService
 
     public async Task<Result<CustomerCylinderBalanceDto>> AdjustBalanceAsync(AdjustCylinderBalanceRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.Quantity <= 0)
+            return Result<CustomerCylinderBalanceDto>.Failure("Quantity must be positive.");
+
         var balance = await _context.CustomerCylinderBalances
             .Include(c => c.Customer)
             .Include(c => c.Brand)
@@ -71,25 +74,76 @@ public class CustomerCylinderLedgerService : ICustomerCylinderLedgerService
                 && c.CylinderSizeId == request.CylinderSizeId
                 && !c.IsDeleted, cancellationToken);
 
-        if (balance is null)
+        if (request.IsReturn && request.Quantity > (balance is null ? 0 : balance.Received - balance.Returned))
+            return Result<CustomerCylinderBalanceDto>.Failure("Cannot return more cylinders than are outstanding.");
+
+        // Optional monetary settlement: the returned cylinders reduce a credit sales order's due.
+        Payment? settlement = null;
+        if (request.SettlementAmount > 0)
         {
-            balance = new CustomerCylinderBalance
+            if (!request.IsReturn)
+                return Result<CustomerCylinderBalanceDto>.Failure("A credit settlement applies only to cylinder returns.");
+            if (request.SettlementSalesOrderId is null)
+                return Result<CustomerCylinderBalanceDto>.Failure("Select the credit sales order to settle against.");
+
+            var order = await _context.SalesOrders
+                .FirstOrDefaultAsync(o => o.Id == request.SettlementSalesOrderId && !o.IsDeleted, cancellationToken);
+            if (order is null || order.CustomerId != request.CustomerId)
+                return Result<CustomerCylinderBalanceDto>.Failure("Sales order not found for this customer.");
+            if (order.Status != SalesOrderStatus.Delivered || !order.IsCreditSale)
+                return Result<CustomerCylinderBalanceDto>.Failure("Settlements apply to delivered credit sales orders.");
+
+            var paid = await _context.Payments
+                .Where(p => !p.IsDeleted && p.SalesOrderId == order.Id && p.Direction == PaymentDirection.Inbound)
+                .SumAsync(p => p.Amount, cancellationToken);
+            var due = order.TotalAmount - order.Discount - paid;
+            if (request.SettlementAmount > due)
+                return Result<CustomerCylinderBalanceDto>.Failure($"Settlement exceeds the order's remaining due of ৳{due:N0}.");
+
+            settlement = new Payment
             {
-                CustomerId = request.CustomerId,
-                BrandId = request.BrandId,
-                CylinderSizeId = request.CylinderSizeId,
-                Received = 0,
-                Returned = 0
+                SalesOrderId = order.Id,
+                Direction = PaymentDirection.Inbound,
+                Method = PaymentMethod.Cash,
+                Amount = request.SettlementAmount,
+                PaymentDate = DateTime.UtcNow,
+                Reference = "CYL-RETURN",
+                Notes = $"Credit adjusted for {request.Quantity} returned cylinder(s)."
             };
-            await _context.CustomerCylinderBalances.AddAsync(balance, cancellationToken);
         }
 
-        if (request.IsReturn)
-            balance.Returned += request.Quantity;
-        else
-            balance.Received += request.Quantity;
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (balance is null)
+            {
+                balance = new CustomerCylinderBalance
+                {
+                    CustomerId = request.CustomerId,
+                    BrandId = request.BrandId,
+                    CylinderSizeId = request.CylinderSizeId,
+                    Received = 0,
+                    Returned = 0
+                };
+                await _context.CustomerCylinderBalances.AddAsync(balance, cancellationToken);
+            }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (request.IsReturn)
+                balance.Returned += request.Quantity;
+            else
+                balance.Received += request.Quantity;
+
+            if (settlement is not null)
+                await _context.Payments.AddAsync(settlement, cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         return Result<CustomerCylinderBalanceDto>.Success(_mapper.Map<CustomerCylinderBalanceDto>(balance));
     }
@@ -116,4 +170,8 @@ public class AdjustCylinderBalanceRequest
     public Guid CylinderSizeId { get; set; }
     public int Quantity { get; set; }
     public bool IsReturn { get; set; }
+    /// <summary>Optional: credit sales order whose due is reduced by this return.</summary>
+    public Guid? SettlementSalesOrderId { get; set; }
+    /// <summary>Optional: amount credited against the order when cylinders are returned.</summary>
+    public decimal SettlementAmount { get; set; }
 }

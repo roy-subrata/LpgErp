@@ -85,7 +85,8 @@ public class SalesOrderService : ISalesOrderService
                 ProductId = i.ProductId,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
-                CylinderExchangeQuantity = i.CylinderExchangeQuantity
+                CylinderExchangeQuantity = i.CylinderExchangeQuantity,
+                EmptyReturnedQuantity = i.EmptyReturnedQuantity
             }).ToList()
         };
 
@@ -125,7 +126,8 @@ public class SalesOrderService : ISalesOrderService
             ProductId = i.ProductId,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice,
-            CylinderExchangeQuantity = i.CylinderExchangeQuantity
+            CylinderExchangeQuantity = i.CylinderExchangeQuantity,
+            EmptyReturnedQuantity = i.EmptyReturnedQuantity
         }).ToList();
 
         entity.TotalAmount = entity.Items.Sum(i => i.TotalPrice);
@@ -223,6 +225,8 @@ public class SalesOrderService : ISalesOrderService
                     }, cancellationToken);
                 }
 
+                await ApplyCylinderLedgerAsync(entity, cancellationToken);
+
                 entity.Status = SalesOrderStatus.Delivered;
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -271,6 +275,8 @@ public class SalesOrderService : ISalesOrderService
                 }, cancellationToken);
             }
 
+            await ApplyCylinderLedgerAsync(entity, cancellationToken);
+
             entity.Status = SalesOrderStatus.Delivered;
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -282,5 +288,41 @@ public class SalesOrderService : ISalesOrderService
         }
 
         return await GetByIdAsync(id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Records the cylinder movement of a delivered sale on the customer's cylinder ledger.
+    /// Gas-refill lines only: the customer receives filled cylinders and hands back empties.
+    /// EmptyReturnedQuantity null = full swap; 0 = advance refill (cylinder owed, tracked as outstanding).
+    /// Packages/empty-cylinder sales transfer ownership and do not touch the ledger.
+    /// </summary>
+    private async Task ApplyCylinderLedgerAsync(SalesOrder order, CancellationToken cancellationToken)
+    {
+        foreach (var item in order.Items)
+        {
+            var product = await _context.Products.FindAsync([item.ProductId], cancellationToken);
+            if (product is null || product.Type != ProductType.GasRefill) continue;
+            if (product.BrandId is null || product.CylinderSizeId is null) continue;
+
+            var balance = await _context.CustomerCylinderBalances.FirstOrDefaultAsync(b =>
+                b.CustomerId == order.CustomerId
+                && b.BrandId == product.BrandId
+                && b.CylinderSizeId == product.CylinderSizeId
+                && !b.IsDeleted, cancellationToken);
+
+            if (balance is null)
+            {
+                balance = new CustomerCylinderBalance
+                {
+                    CustomerId = order.CustomerId,
+                    BrandId = product.BrandId.Value,
+                    CylinderSizeId = product.CylinderSizeId.Value
+                };
+                await _context.CustomerCylinderBalances.AddAsync(balance, cancellationToken);
+            }
+
+            balance.Received += item.Quantity;
+            balance.Returned += item.EmptyReturnedQuantity ?? item.Quantity;
+        }
     }
 }
