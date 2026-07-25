@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.SalesOrders.DTOs;
@@ -64,6 +64,17 @@ public class SalesOrderService : ISalesOrderService
         return Result<SalesOrderDto>.Success(_mapper.Map<SalesOrderDto>(entity));
     }
 
+    /// <summary>
+    /// A discount may never exceed the order's goods value — an order whose NetAmount is negative would
+    /// read as money owed back to the customer and would corrupt revenue and receivable figures.
+    /// </summary>
+    private static string? ValidateDiscount(decimal discount, decimal totalAmount)
+    {
+        if (discount < 0) return "Discount cannot be negative.";
+        if (discount > totalAmount) return $"Discount ({discount:N2}) cannot exceed the order total ({totalAmount:N2}).";
+        return null;
+    }
+
     public async Task<Result<SalesOrderDto>> CreateAsync(CreateSalesOrderRequest request, CancellationToken cancellationToken = default)
     {
         var order = new SalesOrder
@@ -85,12 +96,14 @@ public class SalesOrderService : ISalesOrderService
                 ProductId = i.ProductId,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
-                CylinderExchangeQuantity = i.CylinderExchangeQuantity,
                 EmptyReturnedQuantity = i.EmptyReturnedQuantity
             }).ToList()
         };
 
         order.TotalAmount = order.Items.Sum(i => i.TotalPrice);
+
+        if (ValidateDiscount(order.Discount, order.TotalAmount) is string discountError)
+            return Result<SalesOrderDto>.Failure(discountError);
 
         await _context.SalesOrders.AddAsync(order, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -107,6 +120,10 @@ public class SalesOrderService : ISalesOrderService
         if (entity is null) return Result<SalesOrderDto>.Failure("Sales order not found.");
         if (entity.Status != SalesOrderStatus.Draft)
             return Result<SalesOrderDto>.Failure("Only draft orders can be updated.");
+
+        // Check the discount against the incoming items before mutating the tracked entity.
+        if (ValidateDiscount(request.Discount, request.Items.Sum(i => i.Quantity * i.UnitPrice)) is string discountError)
+            return Result<SalesOrderDto>.Failure(discountError);
 
         entity.CustomerId = request.CustomerId;
         entity.WarehouseId = request.WarehouseId;
@@ -126,7 +143,6 @@ public class SalesOrderService : ISalesOrderService
             ProductId = i.ProductId,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice,
-            CylinderExchangeQuantity = i.CylinderExchangeQuantity,
             EmptyReturnedQuantity = i.EmptyReturnedQuantity
         }).ToList();
 

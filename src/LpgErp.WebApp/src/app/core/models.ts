@@ -162,7 +162,6 @@ export interface SalesOrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  cylinderExchangeQuantity: number;
 }
 
 export interface Payment {
@@ -289,6 +288,8 @@ export interface CylinderExchange {
   id: string;
   customerId: string;
   customerName: string;
+  warehouseId: string;
+  warehouseName: string;
   incomingBrandId: string;
   incomingBrandName: string;
   incomingCylinderSizeId: string;
@@ -390,6 +391,7 @@ export interface FinancialReport {
   accountsReceivable: number;
   supplierPayable: number;
   transportationExpenses: number;
+  operatingExpenses: number;
   commissionBalance: number;
   depositLiability: number;
   netProfit: number;

@@ -61,8 +61,11 @@ public class CustomerCreditService : ICustomerCreditService
 
         foreach (var customer in customers)
         {
+            // Ageing is about overdue receivables, so it looks at delivered credit sales only —
+            // a cash sale creates no debt, and an undelivered order is not owed yet.
             var salesOrders = await _context.SalesOrders
-                .Where(so => so.CustomerId == customer.Id && !so.IsDeleted)
+                .Where(so => so.CustomerId == customer.Id && !so.IsDeleted
+                    && so.Status == SalesOrderStatus.Delivered && so.IsCreditSale)
                 .Include(so => so.Payments.Where(p => !p.IsDeleted))
                 .ToListAsync(cancellationToken);
 
@@ -95,17 +98,19 @@ public class CustomerCreditService : ICustomerCreditService
                 var orderBalance = order.NetAmount - orderPayments;
                 if (orderBalance <= 0) continue;
 
-                var daysOld = (now - order.OrderDate).Days;
+                // Age from the due date when there is one — a 60-day-term invoice raised 40 days ago is
+                // not overdue at all. Each bucket now holds the days-overdue range its name claims;
+                // previously every bucket was shifted one column, so a 100-day-old debt read as "90 days".
+                var dueDate = order.DueDate ?? order.OrderDate;
+                var daysOverdue = (now - dueDate).Days;
 
-                if (daysOld <= 0)
+                if (daysOverdue <= 0)
                     aged.Current += orderBalance;
-                else if (daysOld <= 30)
-                    aged.Current += orderBalance;
-                else if (daysOld <= 60)
+                else if (daysOverdue <= 30)
                     aged.Days30 += orderBalance;
-                else if (daysOld <= 90)
+                else if (daysOverdue <= 60)
                     aged.Days60 += orderBalance;
-                else if (daysOld <= 120)
+                else if (daysOverdue <= 90)
                     aged.Days90 += orderBalance;
                 else
                     aged.DaysOver90 += orderBalance;
@@ -127,13 +132,18 @@ public class CustomerCreditService : ICustomerCreditService
 
     private async Task<CustomerCreditSummaryDto> BuildCreditSummaryAsync(Customer customer, CancellationToken cancellationToken)
     {
+        // Sum the mapped columns, not the computed NetAmount — EF cannot translate an unmapped property.
+        // Delivered orders only: an undelivered order is not yet a debt the customer owes.
         var totalPurchases = await _context.SalesOrders
-            .Where(so => so.CustomerId == customer.Id && !so.IsDeleted)
-            .SumAsync(so => so.NetAmount, cancellationToken);
+            .Where(so => so.CustomerId == customer.Id && !so.IsDeleted && so.Status == SalesOrderStatus.Delivered)
+            .SumAsync(so => so.TotalAmount - so.Discount, cancellationToken);
 
+        // Scoped to the same delivered orders as the purchases above, so the balance cannot go negative
+        // just because money was taken against an order that has not shipped.
         var totalPayments = await _context.Payments
             .Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound
-                && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id && !so.IsDeleted))
+                && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id
+                    && !so.IsDeleted && so.Status == SalesOrderStatus.Delivered))
             .SumAsync(p => p.Amount, cancellationToken);
 
         var outstandingBalance = totalPurchases - totalPayments;

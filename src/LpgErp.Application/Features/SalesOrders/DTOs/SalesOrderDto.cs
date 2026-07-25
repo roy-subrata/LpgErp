@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using LpgErp.Application.Common.Mappings;
 using LpgErp.Domain.Entities;
 
@@ -45,7 +45,6 @@ public class SalesOrderItemDto : IMapFrom<SalesOrderItem>
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
-    public int? CylinderExchangeQuantity { get; set; }
     public int? EmptyReturnedQuantity { get; set; }
 
     public void Mapping(Profile profile)
@@ -74,7 +73,6 @@ public class CreateSalesOrderItemRequest
     public Guid ProductId { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
-    public int? CylinderExchangeQuantity { get; set; }
     public int? EmptyReturnedQuantity { get; set; }
 }
 

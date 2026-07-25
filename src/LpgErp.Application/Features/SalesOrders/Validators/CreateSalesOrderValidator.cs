@@ -16,6 +16,11 @@ public class CreateSalesOrderValidator : AbstractValidator<CreateSalesOrderReque
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("At least one item is required.");
 
+        RuleFor(x => x.Discount)
+            .GreaterThanOrEqualTo(0).WithMessage("Discount cannot be negative.")
+            .Must((request, discount) => discount <= request.Items.Sum(i => i.Quantity * i.UnitPrice))
+            .WithMessage("Discount cannot exceed the order total.");
+
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.ProductId)

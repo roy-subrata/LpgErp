@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
 import { ApiService } from '../../core/api.service';
-import { Brand, Customer, CylinderSize, CylinderExchange } from '../../core/models';
+import { Brand, Customer, CylinderSize, CylinderExchange, Warehouse } from '../../core/models';
 
 @Component({
   selector: 'app-cylinder-exchange-form',
@@ -18,6 +18,15 @@ import { Brand, Customer, CylinderSize, CylinderExchange } from '../../core/mode
             <option value="">Select Customer</option>
             @for (customer of customers(); track customer.id) {
               <option [value]="customer.id">{{ customer.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="warehouseId">Warehouse</label>
+          <select id="warehouseId" [(ngModel)]="warehouseId" name="warehouseId" required>
+            <option value="">Select Warehouse</option>
+            @for (warehouse of warehouses(); track warehouse.id) {
+              <option [value]="warehouse.id">{{ warehouse.name }}</option>
             }
           </select>
         </div>
@@ -102,6 +111,7 @@ export class CylinderExchangeFormComponent implements OnChanges {
   @Output() saved = new EventEmitter<void>();
 
   customerId = '';
+  warehouseId = '';
   incomingBrandId = '';
   incomingCylinderSizeId = '';
   incomingQuantity = 0;
@@ -111,6 +121,7 @@ export class CylinderExchangeFormComponent implements OnChanges {
   exchangeCharge = 0;
   notes = '';
   customers = signal<Customer[]>([]);
+  warehouses = signal<Warehouse[]>([]);
   brands = signal<Brand[]>([]);
   cylinderSizes = signal<CylinderSize[]>([]);
   saving = signal(false);
@@ -120,9 +131,11 @@ export class CylinderExchangeFormComponent implements OnChanges {
       this.api.getAllList<Customer>('customers').subscribe(data => this.customers.set(data));
       this.api.getAllList<Brand>('brands').subscribe(data => this.brands.set(data));
       this.api.getAllList<CylinderSize>('cylindersizes').subscribe(data => this.cylinderSizes.set(data));
+      this.api.getAllList<Warehouse>('warehouses').subscribe(data => this.warehouses.set(data));
       if (this.entityId) {
         this.api.getById<CylinderExchange>('cylinderexchanges', this.entityId).subscribe(exchange => {
           this.customerId = exchange.customerId;
+          this.warehouseId = exchange.warehouseId;
           this.incomingBrandId = exchange.incomingBrandId;
           this.incomingCylinderSizeId = exchange.incomingCylinderSizeId;
           this.incomingQuantity = exchange.incomingQuantity;
@@ -142,6 +155,7 @@ export class CylinderExchangeFormComponent implements OnChanges {
     this.saving.set(true);
     const body = {
       customerId: this.customerId,
+      warehouseId: this.warehouseId,
       incomingBrandId: this.incomingBrandId,
       incomingCylinderSizeId: this.incomingCylinderSizeId,
       incomingQuantity: this.incomingQuantity,
@@ -173,6 +187,7 @@ export class CylinderExchangeFormComponent implements OnChanges {
 
   private resetForm() {
     this.customerId = '';
+    this.warehouseId = '';
     this.incomingBrandId = '';
     this.incomingCylinderSizeId = '';
     this.incomingQuantity = 0;

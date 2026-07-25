@@ -1,4 +1,3 @@
-using FluentValidation;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -52,14 +51,7 @@ public abstract class BaseController<TCreateRequest, TUpdateRequest, TResponseDt
     [HttpPost]
     public virtual async Task<IActionResult> Create([FromBody] TCreateRequest request, CancellationToken cancellationToken)
     {
-        var validator = HttpContext.RequestServices.GetService<IValidator<TCreateRequest>>();
-        if (validator is not null)
-        {
-            var validation = await validator.ValidateAsync(request, cancellationToken);
-            if (!validation.IsValid)
-                return BadRequest(ApiResponse.Fail(validation.Errors.Select(e => e.ErrorMessage).ToList()));
-        }
-
+        // Request validation is applied globally by ValidationFilter.
         var result = await Service.CreateAsync(request, cancellationToken);
         if (!result.IsSuccess)
             return BadRequest(ApiResponse<TResponseDto>.Fail(result.Error!));

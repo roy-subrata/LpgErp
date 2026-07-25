@@ -1,4 +1,4 @@
-using LpgErp.Application.Common.Interfaces;
+﻿using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.Reports.DTOs;
 using LpgErp.Domain.Entities;
@@ -38,6 +38,12 @@ public class ReportService : IReportService
     private readonly IApplicationDbContext _context;
 
     public ReportService(IApplicationDbContext context) { _context = context; }
+
+    /// <summary>
+    /// Revenue is recognised when goods leave, so every money figure below counts delivered orders only.
+    /// Draft and Confirmed orders are a pipeline, not sales, and Cancelled ones never happened.
+    /// </summary>
+    private const SalesOrderStatus RecognisedStatus = SalesOrderStatus.Delivered;
 
     public async Task<Result<IReadOnlyList<InventoryReportDto>>> GetInventoryReportAsync(Guid? warehouseId, CancellationToken ct = default)
     {
@@ -145,7 +151,7 @@ public class ReportService : IReportService
     public async Task<Result<IReadOnlyList<SalesReportDto>>> GetSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
         var items = await _context.SalesOrders
-            .Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to)
+            .Where(so => !so.IsDeleted && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to)
             .Include(so => so.Customer)
             .OrderByDescending(so => so.OrderDate)
             .ToListAsync(ct);
@@ -167,7 +173,7 @@ public class ReportService : IReportService
     public async Task<Result<IReadOnlyList<CustomerSalesSummaryDto>>> GetSalesByCustomerAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
         var orders = await _context.SalesOrders
-            .Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to)
+            .Where(so => !so.IsDeleted && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to)
             .Include(so => so.Customer)
             .ToListAsync(ct);
 
@@ -199,7 +205,8 @@ public class ReportService : IReportService
             .Where(i => !i.IsDeleted)
             .Include(i => i.SalesOrder)
             .Include(i => i.Product)
-            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted)
+            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted
+                && i.SalesOrder.Status == RecognisedStatus)
             .ToListAsync(ct);
 
         var report = items
@@ -244,8 +251,8 @@ public class ReportService : IReportService
 
         foreach (var customer in customers)
         {
-            var totalPurchases = await _context.SalesOrders.Where(so => so.CustomerId == customer.Id && !so.IsDeleted).SumAsync(so => so.TotalAmount - so.Discount, ct);
-            var totalPayments = await _context.Payments.Where(p => p.SalesOrderId != null && !p.IsDeleted && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id)).SumAsync(p => p.Amount, ct);
+            var totalPurchases = await _context.SalesOrders.Where(so => so.CustomerId == customer.Id && !so.IsDeleted && so.Status == RecognisedStatus).SumAsync(so => so.TotalAmount - so.Discount, ct);
+            var totalPayments = await _context.Payments.Where(p => p.SalesOrderId != null && !p.IsDeleted && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id && !so.IsDeleted && so.Status == RecognisedStatus)).SumAsync(p => p.Amount, ct);
             var cylinderBalance = await _context.CustomerCylinderBalances.Where(c => c.CustomerId == customer.Id && !c.IsDeleted).SumAsync(c => c.Received - c.Returned, ct);
 
             report.Add(new CustomerReportDto
@@ -291,16 +298,39 @@ public class ReportService : IReportService
 
     public async Task<Result<FinancialReportDto>> GetFinancialReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
-        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
+        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
+
+        // Cash actually collected in the period, whatever it was against — this is the cash-flow figure.
         var payments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
+
+        // Receivable must net over the same population as the revenue above: money taken against orders
+        // that have not been delivered is not a receivable, and subtracting it from delivered sales drives
+        // the balance negative.
+        var paymentsOnRecognisedSales = await _context.Payments
+            .Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound && p.SalesOrderId != null
+                && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && !so.IsDeleted
+                    && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to))
+            .SumAsync(p => p.Amount, ct);
         var purchases = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.TotalAmount, ct);
         var purchasePayments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Outbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
-        var deposits = await _context.CylinderDeposits.Where(d => !d.IsDeleted).SumAsync(d => d.Amount, ct);
+
+        // Deposits are a liability only while the business still holds the money: a deposit that has been
+        // returned or refunded reduces it. Summing every row regardless of type inflated the liability.
+        var depositRows = await _context.CylinderDeposits.Where(d => !d.IsDeleted).ToListAsync(ct);
+        var deposits = depositRows.Sum(d => d.Type == CylinderDepositType.Paid ? d.Amount : -d.Amount);
 
         var settlements = await _context.DriverSettlements
             .Where(s => !s.IsDeleted && s.SettlementDate >= from && s.SettlementDate <= to)
             .ToListAsync(ct);
         var transportExpenses = settlements.Sum(s => s.FuelCost + s.LoadingCost + s.UnloadingCost);
+
+        var salesmanSettlements = await _context.SalesmanSettlements
+            .Where(s => !s.IsDeleted && s.SettlementDate >= from && s.SettlementDate <= to)
+            .ToListAsync(ct);
+
+        // Same expense set the P&L breakdown reports, so the two screens agree on net profit.
+        var operatingExpenses = settlements.Sum(s => s.Allowance)
+            + salesmanSettlements.Sum(s => s.Commission + s.Bonus + s.DailyAllowance);
 
         var commissionEarned = await _context.PurchaseOrders
             .Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to)
@@ -312,9 +342,10 @@ public class ReportService : IReportService
             TotalPayments = payments,
             TotalPurchases = purchases,
             TotalPurchasePayments = purchasePayments,
-            AccountsReceivable = sales - payments,
+            AccountsReceivable = sales - paymentsOnRecognisedSales,
             SupplierPayable = purchases - purchasePayments,
             TransportationExpenses = transportExpenses,
+            OperatingExpenses = operatingExpenses,
             CommissionBalance = commissionEarned,
             DepositLiability = deposits
         };
@@ -325,7 +356,7 @@ public class ReportService : IReportService
     public async Task<Result<IReadOnlyList<RouteSalesDto>>> GetSalesByRouteAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
         var orders = await _context.SalesOrders
-            .Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to)
+            .Where(so => !so.IsDeleted && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to)
             .Include(so => so.Route)
             .ToListAsync(ct);
 
@@ -357,7 +388,8 @@ public class ReportService : IReportService
             .Where(i => !i.IsDeleted)
             .Include(i => i.SalesOrder)
             .Include(i => i.Product).ThenInclude(p => p.Brand)
-            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted)
+            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted
+                && i.SalesOrder.Status == RecognisedStatus)
             .ToListAsync(ct);
 
         var report = items
@@ -457,7 +489,8 @@ public class ReportService : IReportService
             .Include(i => i.SalesOrder)
             .Include(i => i.Product).ThenInclude(p => p.Brand)
             .Include(i => i.Product).ThenInclude(p => p.CylinderSize)
-            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted)
+            .Where(i => i.SalesOrder!.OrderDate >= from && i.SalesOrder.OrderDate <= to && !i.SalesOrder.IsDeleted
+                && i.SalesOrder.Status == RecognisedStatus)
             .ToListAsync(ct);
 
         var report = items
@@ -478,23 +511,30 @@ public class ReportService : IReportService
 
     public async Task<Result<IReadOnlyList<AdvanceRefillReportDto>>> GetAdvanceRefillReportAsync(CancellationToken ct = default)
     {
-        var orders = await _context.SalesOrders
-            .Where(so => !so.IsDeleted && so.Notes != null && so.Notes.Contains("Advance Refill"))
-            .Include(so => so.Customer)
-            .Include(so => so.Items).ThenInclude(i => i.Product)
-            .OrderByDescending(so => so.OrderDate)
+        // An advance refill is a delivered gas-refill line where the customer handed back no empty
+        // (EmptyReturnedQuantity == 0). This used to match on the free-text note "Advance Refill", which
+        // only worked because SQL Server's default collation is case-insensitive and caught any order
+        // whose notes happened to contain that phrase.
+        var items = await _context.SalesOrderItems
+            .Where(i => !i.IsDeleted && !i.SalesOrder.IsDeleted
+                && i.SalesOrder.Status == RecognisedStatus
+                && i.Product.Type == ProductType.GasRefill
+                && i.EmptyReturnedQuantity == 0)
+            .Include(i => i.SalesOrder).ThenInclude(so => so.Customer)
+            .Include(i => i.Product)
+            .OrderByDescending(i => i.SalesOrder.OrderDate)
             .ToListAsync(ct);
 
-        var report = orders.SelectMany(so => so.Items.Select(i => new AdvanceRefillReportDto
+        var report = items.Select(i => new AdvanceRefillReportDto
         {
-            CustomerName = so.Customer.Name,
+            CustomerName = i.SalesOrder.Customer.Name,
             ProductName = i.Product.Name,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice,
             TotalAmount = i.TotalPrice,
-            OrderDate = so.OrderDate,
-            OrderNumber = so.OrderNumber
-        })).ToList();
+            OrderDate = i.SalesOrder.OrderDate,
+            OrderNumber = i.SalesOrder.OrderNumber
+        }).ToList();
 
         return Result<IReadOnlyList<AdvanceRefillReportDto>>.Success(report);
     }
@@ -581,15 +621,33 @@ public class ReportService : IReportService
             .Where(p => !p.IsDeleted && p.PaymentDate >= from && p.PaymentDate <= to)
             .ToListAsync(ct);
 
-        var report = payments
-            .GroupBy(p => p.PaymentDate.Date)
+        // Deposits and exchange charges are real money crossing the counter but carry no Payment row,
+        // so cash flow used to miss them entirely. A deposit taken is cash in; one returned or refunded
+        // is cash out; an exchange charge is cash in.
+        var deposits = await _context.CylinderDeposits
+            .Where(d => !d.IsDeleted && d.DepositDate >= from && d.DepositDate <= to)
+            .ToListAsync(ct);
+
+        var exchanges = await _context.CylinderExchanges
+            .Where(e => !e.IsDeleted && e.ExchangeCharge != 0 && e.ExchangeDate >= from && e.ExchangeDate <= to)
+            .ToListAsync(ct);
+
+        var movements = payments
+            .Select(p => (Date: p.PaymentDate.Date, In: p.Direction == PaymentDirection.Inbound ? p.Amount : 0m,
+                                                    Out: p.Direction == PaymentDirection.Outbound ? p.Amount : 0m))
+            .Concat(deposits.Select(d => (Date: d.DepositDate.Date,
+                In: d.Type == CylinderDepositType.Paid ? d.Amount : 0m,
+                Out: d.Type == CylinderDepositType.Paid ? 0m : d.Amount)))
+            .Concat(exchanges.Select(e => (Date: e.ExchangeDate.Date, In: e.ExchangeCharge, Out: 0m)));
+
+        var report = movements
+            .GroupBy(m => m.Date)
             .Select(g => new CashFlowEntryDto
             {
                 Date = g.Key,
-                CashIn = g.Where(p => p.Direction == PaymentDirection.Inbound).Sum(p => p.Amount),
-                CashOut = g.Where(p => p.Direction == PaymentDirection.Outbound).Sum(p => p.Amount),
-                NetCashFlow = g.Where(p => p.Direction == PaymentDirection.Inbound).Sum(p => p.Amount)
-                             - g.Where(p => p.Direction == PaymentDirection.Outbound).Sum(p => p.Amount)
+                CashIn = g.Sum(m => m.In),
+                CashOut = g.Sum(m => m.Out),
+                NetCashFlow = g.Sum(m => m.In) - g.Sum(m => m.Out)
             })
             .OrderBy(e => e.Date)
             .ToList();
@@ -601,11 +659,16 @@ public class ReportService : IReportService
     {
         var categories = new List<PnLCategoryDto>();
 
-        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
+        var sales = await _context.SalesOrders.Where(so => !so.IsDeleted && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to).SumAsync(so => so.TotalAmount - so.Discount, ct);
         categories.Add(new PnLCategoryDto { Category = "Sales Revenue", Amount = sales, IsIncome = true });
 
         var commission = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.CommissionEarned, ct);
         if (commission > 0) categories.Add(new PnLCategoryDto { Category = "Commission Earned", Amount = commission, IsIncome = true });
+
+        // Goods bought in the period. Not strictly COGS — it is purchase value, not the cost of what was
+        // sold — but omitting it entirely left the breakdown reporting profit on revenue with no stock cost.
+        var purchases = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.TotalAmount, ct);
+        if (purchases > 0) categories.Add(new PnLCategoryDto { Category = "Purchases", Amount = purchases, IsIncome = false });
 
         var settlements = await _context.DriverSettlements.Where(s => !s.IsDeleted && s.SettlementDate >= from && s.SettlementDate <= to).ToListAsync(ct);
         var fuel = settlements.Sum(s => s.FuelCost);

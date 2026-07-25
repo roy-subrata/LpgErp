@@ -1,3 +1,4 @@
+using LpgErp.Api.Filters;
 using LpgErp.Api.Middleware;
 using LpgErp.Infrastructure;
 using LpgErp.Infrastructure.Persistence;
@@ -18,7 +19,8 @@ try
 {
     builder.Host.UseSerilog();
 
-    builder.Services.AddControllers();
+    // Validation runs for every action argument that has a registered validator — see ValidationFilter.
+    builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>());
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 

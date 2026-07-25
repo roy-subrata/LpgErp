@@ -12,8 +12,10 @@ import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
   template: `
     <app-dialog [open]="open" [title]="entityId ? 'Edit Payment' : 'New Payment'" (close)="onClose()">
       <form (ngSubmit)="submit()">
+        <p class="form-hint">Link the payment to either a sales order or a purchase order — a payment
+          attached to neither cannot be attributed to a customer or supplier.</p>
         <div class="form-group">
-          <label for="salesOrderId">Sales Order (optional)</label>
+          <label for="salesOrderId">Sales Order</label>
           <select id="salesOrderId" [(ngModel)]="salesOrderId" name="salesOrderId">
             <option value="">-- None --</option>
             @for (so of salesOrders(); track so.id) {
@@ -22,7 +24,7 @@ import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
           </select>
         </div>
         <div class="form-group">
-          <label for="purchaseOrderId">Purchase Order (optional)</label>
+          <label for="purchaseOrderId">Purchase Order</label>
           <select id="purchaseOrderId" [(ngModel)]="purchaseOrderId" name="purchaseOrderId">
             <option value="">-- None --</option>
             @for (po of purchaseOrders(); track po.id) {
@@ -70,6 +72,7 @@ import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
     </app-dialog>
   `,
   styles: [`
+    .form-hint { margin: 0 0 1rem; color: #666; font-size: 0.85rem; line-height: 1.4; }
     .form-group { margin-bottom: 1rem; }
     .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; }
     .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }

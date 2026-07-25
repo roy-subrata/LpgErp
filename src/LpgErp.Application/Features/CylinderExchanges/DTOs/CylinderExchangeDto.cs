@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using LpgErp.Application.Common.Mappings;
 using LpgErp.Domain.Entities;
 
@@ -9,6 +9,8 @@ public class CylinderExchangeDto : IMapFrom<CylinderExchange>
     public Guid Id { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }
     public Guid IncomingBrandId { get; set; }
     public string? IncomingBrandName { get; set; }
     public Guid IncomingCylinderSizeId { get; set; }
@@ -27,6 +29,7 @@ public class CylinderExchangeDto : IMapFrom<CylinderExchange>
     {
         profile.CreateMap<CylinderExchange, CylinderExchangeDto>()
             .ForMember(d => d.CustomerName, opt => opt.MapFrom(s => s.Customer.Name))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.IncomingBrandName, opt => opt.MapFrom(s => s.IncomingBrand.Name))
             .ForMember(d => d.IncomingCylinderSizeName, opt => opt.MapFrom(s => s.IncomingCylinderSize.Name))
             .ForMember(d => d.OutgoingBrandName, opt => opt.MapFrom(s => s.OutgoingBrand.Name))
@@ -38,6 +41,7 @@ public class CreateCylinderExchangeRequest : IMapTo<CylinderExchange>
 {
     public Guid CustomerId { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid WarehouseId { get; set; }
     public Guid IncomingBrandId { get; set; }
     public Guid IncomingCylinderSizeId { get; set; }
     public int IncomingQuantity { get; set; }
@@ -51,6 +55,7 @@ public class CreateCylinderExchangeRequest : IMapTo<CylinderExchange>
 public class UpdateCylinderExchangeRequest : IMapTo<CylinderExchange>
 {
     public Guid CustomerId { get; set; }
+    public Guid WarehouseId { get; set; }
     public Guid IncomingBrandId { get; set; }
     public Guid IncomingCylinderSizeId { get; set; }
     public int IncomingQuantity { get; set; }

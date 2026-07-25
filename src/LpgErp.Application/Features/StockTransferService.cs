@@ -28,8 +28,20 @@ public class StockTransferService : IStockTransferService
 
     public async Task<Result<StockTransferResponse>> TransferAsync(StockTransferRequest request, CancellationToken ct = default)
     {
+        // Guard the inputs before any lookup: a non-positive quantity would run the transfer in reverse
+        // (crediting the source, debiting the destination) and slip past the availability check below.
+        if (request.Quantity <= 0)
+            return Result<StockTransferResponse>.Failure("Transfer quantity must be greater than zero.");
+        if (request.FromWarehouseId == request.ToWarehouseId)
+            return Result<StockTransferResponse>.Failure("Source and destination warehouses must be different.");
+
         var product = await _context.Products.FindAsync([request.ProductId], ct);
         if (product is null) return Result<StockTransferResponse>.Failure("Product not found.");
+
+        if (!await _context.Warehouses.AnyAsync(w => w.Id == request.FromWarehouseId && !w.IsDeleted, ct))
+            return Result<StockTransferResponse>.Failure("Source warehouse not found.");
+        if (!await _context.Warehouses.AnyAsync(w => w.Id == request.ToWarehouseId && !w.IsDeleted, ct))
+            return Result<StockTransferResponse>.Failure("Destination warehouse not found.");
 
         var fromStock = await _context.StockLevels.FirstOrDefaultAsync(s => s.WarehouseId == request.FromWarehouseId && s.ProductId == request.ProductId, ct);
         if (fromStock is null || fromStock.Quantity < request.Quantity)

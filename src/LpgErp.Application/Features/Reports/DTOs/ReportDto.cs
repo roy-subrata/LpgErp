@@ -106,9 +106,12 @@ public class FinancialReportDto
     public decimal AccountsReceivable { get; set; }
     public decimal SupplierPayable { get; set; }
     public decimal TransportationExpenses { get; set; }
+    /// <summary>Driver allowance plus salesman commission, bonus and daily allowance — the settlement
+    /// costs the P&amp;L breakdown also reports, so both screens arrive at the same net profit.</summary>
+    public decimal OperatingExpenses { get; set; }
     public decimal CommissionBalance { get; set; }
     public decimal DepositLiability { get; set; }
-    public decimal NetProfit => TotalSales - TotalPurchases - TransportationExpenses;
+    public decimal NetProfit => TotalSales + CommissionBalance - TotalPurchases - TransportationExpenses - OperatingExpenses;
 }
 
 public class RouteSalesDto

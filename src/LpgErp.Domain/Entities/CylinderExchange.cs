@@ -6,6 +6,9 @@ public class CylinderExchange : BaseEntity
     public Customer Customer { get; set; } = null!;
     public Guid? SalesOrderId { get; set; }
     public SalesOrder? SalesOrder { get; set; }
+    /// <summary>Warehouse the incoming cylinders land in and the outgoing ones leave from.</summary>
+    public Guid WarehouseId { get; set; }
+    public Warehouse Warehouse { get; set; } = null!;
     public Guid IncomingBrandId { get; set; }
     public Brand IncomingBrand { get; set; } = null!;
     public Guid IncomingCylinderSizeId { get; set; }

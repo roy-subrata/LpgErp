@@ -28,7 +28,7 @@ public class CustomerGasLedgerService : ICustomerGasLedgerService
             return Result<CustomerGasLedgerDto>.Failure("Customer not found.");
 
         var salesOrders = await _context.SalesOrders
-            .Where(so => so.CustomerId == customerId && !so.IsDeleted)
+            .Where(so => so.CustomerId == customerId && !so.IsDeleted && so.Status == SalesOrderStatus.Delivered)
             .Include(so => so.Items).ThenInclude(i => i.Product)
             .OrderByDescending(so => so.OrderDate)
             .ToListAsync(cancellationToken);
@@ -54,39 +54,42 @@ public class CustomerGasLedgerService : ICustomerGasLedgerService
 
         var totalPayments = payments.Sum(p => p.Amount);
         var totalDeposits = deposits.Where(d => d.Type == CylinderDepositType.Paid).Sum(d => d.Amount);
-        var totalPurchases = totalGasPurchases + totalCylinderPurchases;
+        // Charge what the customer was actually billed — the order net, after discount. Summing the line
+        // totals ignored Discount and disagreed with the outstanding figure on the credit page.
+        var totalPurchases = salesOrders.Sum(so => so.NetAmount);
         var outstandingBalance = totalPurchases - totalPayments;
 
-        var entries = new List<LedgerEntryDto>();
-        decimal runningBalance = 0;
-
-        foreach (var order in salesOrders.OrderByDescending(so => so.OrderDate))
-        {
-            runningBalance += order.NetAmount;
-            entries.Add(new LedgerEntryDto
+        // Build the ledger oldest-first so each row's running balance is the balance as at that row,
+        // then present newest-first. Accumulating newest-first (and applying every payment only after
+        // every order) produced a running balance that matched no point in time.
+        var ordered = salesOrders
+            .Select(so => new LedgerEntryDto
             {
-                Date = order.OrderDate,
-                Description = $"Sales Order {order.OrderNumber}",
-                Debit = order.NetAmount,
-                Credit = 0,
-                RunningBalance = runningBalance
-            });
-        }
-
-        foreach (var payment in payments.OrderByDescending(p => p.PaymentDate))
-        {
-            runningBalance -= payment.Amount;
-            entries.Add(new LedgerEntryDto
+                Date = so.OrderDate,
+                Description = $"Sales Order {so.OrderNumber}",
+                Debit = so.NetAmount,
+                Credit = 0
+            })
+            .Concat(payments.Select(p => new LedgerEntryDto
             {
-                Date = payment.PaymentDate,
-                Description = $"Payment - {payment.Method}",
+                Date = p.PaymentDate,
+                Description = $"Payment - {p.Method}",
                 Debit = 0,
-                Credit = payment.Amount,
-                RunningBalance = runningBalance
-            });
+                Credit = p.Amount
+            }))
+            .OrderBy(e => e.Date)
+            .ToList();
+
+        decimal runningBalance = 0;
+        foreach (var entry in ordered)
+        {
+            runningBalance += entry.Debit - entry.Credit;
+            entry.RunningBalance = runningBalance;
         }
 
-        entries = entries.OrderByDescending(e => e.Date).ToList();
+        // Exact inverse of the computation order, so rows sharing a timestamp still read newest-first
+        // instead of being left in ascending order by a stable sort.
+        var entries = Enumerable.Reverse(ordered).ToList();
 
         return Result<CustomerGasLedgerDto>.Success(new CustomerGasLedgerDto
         {

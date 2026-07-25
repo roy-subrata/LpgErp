@@ -199,7 +199,7 @@ export class CustomerListComponent implements OnInit {
   pageSize = 15;
 
   items = signal<any[]>([]);
-  financial = signal<FinancialReport>({ totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPurchasePayments: 0, accountsReceivable: 0, supplierPayable: 0, transportationExpenses: 0, commissionBalance: 0, depositLiability: 0, netProfit: 0 });
+  financial = signal<FinancialReport>({ totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPurchasePayments: 0, accountsReceivable: 0, supplierPayable: 0, transportationExpenses: 0, operatingExpenses: 0, commissionBalance: 0, depositLiability: 0, netProfit: 0 });
   customerReports = signal<CustomerReport[]>([]);
   query = signal('');
   activeTab = signal('');

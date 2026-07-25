@@ -296,7 +296,7 @@ export class DashboardComponent implements OnInit {
   financial = signal<FinancialReport>({
     totalSales: 0, totalPayments: 0, totalPurchases: 0,
     totalPurchasePayments: 0, accountsReceivable: 0, supplierPayable: 0,
-    transportationExpenses: 0, commissionBalance: 0, depositLiability: 0, netProfit: 0,
+    transportationExpenses: 0, operatingExpenses: 0, commissionBalance: 0, depositLiability: 0, netProfit: 0,
   });
   vehicleLoadings = signal<VehicleLoading[]>([]);
   salesOrders = signal<any[]>([]);
