@@ -25,6 +25,7 @@ public static class DbSeeder
         await SeedTransportCompaniesAsync(db, ct);
         await SeedStockLevelsAsync(db, ct);
         await SeedTransactionsAsync(db, ct);
+        await SeedCommissionDataAsync(db, ct);
     }
 
     /// <summary>
@@ -454,5 +455,188 @@ public static class DbSeeder
         }
         db.SalesmanSettlements.AddRange(salesmanSettlements);
         await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedCommissionDataAsync(LpgErpDbContext db, CancellationToken ct)
+    {
+        if (await db.CommissionPolicies.AnyAsync(ct))
+            return;
+
+        var salesmen = await db.Salesmen.Where(s => !s.IsDeleted).ToListAsync(ct);
+        var drivers = await db.Drivers.Where(d => !d.IsDeleted).ToListAsync(ct);
+        var customers = await db.Customers.Where(c => !c.IsDeleted).ToListAsync(ct);
+        var suppliers = await db.Suppliers.Where(s => !s.IsDeleted).ToListAsync(ct);
+        var brands = await db.Brands.Where(b => !b.IsDeleted).ToListAsync(ct);
+        var products = await db.Products.Where(p => !p.IsDeleted && p.Type == ProductType.GasRefill).ToListAsync(ct);
+
+        if (salesmen.Count == 0) return;
+
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var lastMonthStart = monthStart.AddMonths(-1);
+        var lastMonthEnd = monthStart.AddDays(-1);
+
+        var policies = new List<CommissionPolicy>();
+        var ledgers = new List<CommissionLedger>();
+
+        // --- Salesman commission policies ---
+        if (salesmen.Count > 0)
+        {
+            var sm = salesmen[0];
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Per-Unit Sales Commission", Description = "৳25 per cylinder sold",
+                EntityType = CommissionEntityType.Salesman, EntityId = sm.Id,
+                CalculationType = CommissionCalculationType.PerUnit, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 0, CommissionValue = 25m,
+                AutoApply = true, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+
+            var sm2 = salesmen.Count > 1 ? salesmen[1] : sm;
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Monthly Target Bonus", Description = "৳2000 bonus for 200+ cylinders",
+                EntityType = CommissionEntityType.Salesman, EntityId = sm2.Id,
+                CalculationType = CommissionCalculationType.TargetBonus, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 200, CommissionValue = 2000m,
+                AutoApply = true, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+
+            if (brands.Count > 0)
+            {
+                var sm3 = salesmen.Count > 2 ? salesmen[2] : sm;
+                policies.Add(new CommissionPolicy
+                {
+                    Id = Guid.NewGuid(), Name = "Bashundhara Sales %", Description = "3% on all Bashundhara sales",
+                    EntityType = CommissionEntityType.Salesman, EntityId = sm3.Id,
+                    CalculationType = CommissionCalculationType.Percentage, PeriodType = CommissionPeriodType.Monthly,
+                    BrandId = brands[0].Id,
+                    TargetQuantity = 0, CommissionValue = 3m,
+                    AutoApply = true, IsActive = true,
+                    StartDate = lastMonthStart, EndDate = today.AddDays(30),
+                });
+            }
+
+            // Tiered commission for first salesman
+            var sm4 = salesmen[0];
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Tiered Sales Commission", Description = "Tiered % based on volume",
+                EntityType = CommissionEntityType.Salesman, EntityId = sm4.Id,
+                CalculationType = CommissionCalculationType.TieredPercentage, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 0, CommissionValue = 0,
+                TierConfig = "[{\"MinQuantity\":1,\"MaxQuantity\":100,\"CommissionPercent\":1.5},{\"MinQuantity\":101,\"MaxQuantity\":200,\"CommissionPercent\":2.5},{\"MinQuantity\":201,\"MaxQuantity\":99999,\"CommissionPercent\":4.0}]",
+                AutoApply = false, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+        }
+
+        // --- Driver commission policies ---
+        if (drivers.Count > 0)
+        {
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Per-Delivery Incentive", Description = "৳15 per cylinder delivered",
+                EntityType = CommissionEntityType.Driver, EntityId = drivers[0].Id,
+                CalculationType = CommissionCalculationType.PerUnit, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 0, CommissionValue = 15m,
+                AutoApply = true, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+
+            if (drivers.Count > 1)
+            {
+                policies.Add(new CommissionPolicy
+                {
+                    Id = Guid.NewGuid(), Name = "Safe Delivery Bonus", Description = "৳1500 bonus for 30+ trips",
+                    EntityType = CommissionEntityType.Driver, EntityId = drivers[1].Id,
+                    CalculationType = CommissionCalculationType.TargetBonus, PeriodType = CommissionPeriodType.Monthly,
+                    TargetQuantity = 30, CommissionValue = 1500m,
+                    AutoApply = true, IsActive = true,
+                    StartDate = lastMonthStart, EndDate = today.AddDays(30),
+                });
+            }
+        }
+
+        // --- Customer offer policies ---
+        if (customers.Count > 1)
+        {
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Wholesale Loyalty Discount", Description = "2% rebate on orders > ৳50,000",
+                EntityType = CommissionEntityType.Customer, EntityId = customers[1].Id,
+                CalculationType = CommissionCalculationType.Percentage, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 0, CommissionValue = 2m,
+                AutoApply = false, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+        }
+
+        // --- Supplier commission policies ---
+        if (suppliers.Count > 0 && brands.Count > 0)
+        {
+            policies.Add(new CommissionPolicy
+            {
+                Id = Guid.NewGuid(), Name = "Bashundhara Supplier Rebate", Description = "৳50 per cylinder purchased",
+                EntityType = CommissionEntityType.Supplier, EntityId = suppliers[0].Id,
+                CalculationType = CommissionCalculationType.PerUnit, PeriodType = CommissionPeriodType.Monthly,
+                TargetQuantity = 0, CommissionValue = 50m,
+                AutoApply = true, IsActive = true,
+                StartDate = lastMonthStart, EndDate = today.AddDays(30),
+            });
+        }
+
+        db.CommissionPolicies.AddRange(policies);
+        await db.SaveChangesAsync(ct);
+
+        // --- Seed ledger entries for last month ---
+        foreach (var policy in policies.Where(p => p.AutoApply))
+        {
+            var periodKey = $"{lastMonthStart.Year}-{lastMonthStart.Month:D2}";
+            var actualQty = policy.EntityType switch
+            {
+                CommissionEntityType.Salesman => 120 + new Random(policy.EntityId.GetHashCode()).Next(80),
+                CommissionEntityType.Driver => 20 + new Random(policy.EntityId.GetHashCode()).Next(15),
+                CommissionEntityType.Supplier => 300 + new Random(policy.EntityId.GetHashCode()).Next(200),
+                CommissionEntityType.Customer => 150 + new Random(policy.EntityId.GetHashCode()).Next(100),
+                _ => 0
+            };
+
+            var actualAmount = actualQty * (products.FirstOrDefault()?.SalePrice ?? 3000m);
+            var commission = policy.CalculationType switch
+            {
+                CommissionCalculationType.PerUnit => actualQty * policy.CommissionValue,
+                CommissionCalculationType.FixedAmount => actualQty >= policy.TargetQuantity ? policy.CommissionValue : 0,
+                CommissionCalculationType.Percentage => actualAmount * policy.CommissionValue / 100m,
+                CommissionCalculationType.TargetBonus => actualQty >= policy.TargetQuantity ? policy.CommissionValue : 0,
+                _ => 0m,
+            };
+
+            if (commission > 0)
+            {
+                ledgers.Add(new CommissionLedger
+                {
+                    Id = Guid.NewGuid(),
+                    PolicyId = policy.Id,
+                    EntityType = policy.EntityType,
+                    EntityId = policy.EntityId,
+                    PeriodKey = periodKey,
+                    ActualQuantity = actualQty,
+                    ActualAmount = actualAmount,
+                    CommissionEarned = commission,
+                    Status = CommissionLedgerStatus.Earned,
+                    PeriodStart = lastMonthStart,
+                    PeriodEnd = lastMonthEnd,
+                });
+            }
+        }
+
+        if (ledgers.Count > 0)
+        {
+            db.CommissionLedgers.AddRange(ledgers);
+            await db.SaveChangesAsync(ct);
+        }
     }
 }
