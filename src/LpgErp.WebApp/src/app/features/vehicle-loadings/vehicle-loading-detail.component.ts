@@ -60,7 +60,7 @@ import { VehicleLoading } from '../../core/models';
 
         @if (closing(); as c) {
           <div class="panel">
-            <div class="panel-title">Closing — {{ c.closingDate | date:'medium' }}</div>
+            <div class="panel-title">Closing — {{ c.closingDate | date:'MMM d, y, h:mm a' }}</div>
             <div class="stat-row">
               <div class="stat"><span>Cash</span><b class="green">৳ {{ c.cashCollected | number }}</b></div>
               <div class="stat"><span>Credit</span><b class="amber">৳ {{ c.creditSales | number }}</b></div>
@@ -92,27 +92,29 @@ import { VehicleLoading } from '../../core/models';
     .st-0 { background: #fefce8; color: #a16207; }
     .st-1 { background: #f0fdf4; color: #15803d; }
     .st-2 { background: #eff6ff; color: #1d4ed8; }
-    .detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+    .detail-grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
     .panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px; }
-    .kv { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border-row); }
-    .kv span { color: var(--text-muted); }
-    .kv b { color: var(--text-primary); font-weight: 600; }
+    .kv { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--border-row); }
+    .kv:last-child { border-bottom: none; }
+    .kv span { color: var(--text-muted); font-weight: 500; }
+    .kv b { color: var(--text-primary); font-weight: 600; text-align: right; white-space: nowrap; }
     .mini-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .mini-table th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
-    .mini-table td { padding: 7px 8px; border-bottom: 1px solid var(--border-row); color: var(--text-secondary); }
-    .mini-table tfoot td { font-weight: 700; color: var(--text-primary); border-top: 2px solid var(--border); }
-    .num { text-align: right; font-family: var(--font-mono); }
-    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    .stat { display: flex; flex-direction: column; gap: 2px; background: var(--fill-subtle); border-radius: 8px; padding: 10px 12px; }
-    .stat span { font-size: 10px; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.04em; }
-    .stat b { font-size: 15px; color: var(--text-primary); }
+    .mini-table th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .mini-table th.num { text-align: right; }
+    .mini-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-row); color: var(--text-secondary); }
+    .mini-table tfoot td { font-weight: 700; color: var(--text-primary); border-top: 2px solid var(--border); background: var(--fill-subtle); }
+    .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .stat-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+    .stat { display: flex; flex-direction: column; gap: 4px; background: var(--fill-subtle); border-radius: 8px; padding: 10px 12px; min-width: 0; overflow: hidden; }
+    .stat span { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; font-weight: 600; }
+    .stat b { font-size: 15px; color: var(--text-primary); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .green { color: var(--green-fg) !important; }
     .amber { color: var(--amber-fg2) !important; }
     .closing-notes { margin: 12px 0 0; font-size: 12px; color: var(--text-muted); font-style: italic; }
     .muted-panel { color: var(--text-muted); font-size: 13px; }
     .loading-msg { color: var(--text-muted); }
-    @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } .stat-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
   `],
 })
 export class VehicleLoadingDetailComponent implements OnInit {

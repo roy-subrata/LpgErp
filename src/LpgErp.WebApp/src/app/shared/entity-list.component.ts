@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { EntityDrawerComponent, DrawerField } from './entity-drawer.component';
+import { DropdownMenuComponent, DropdownMenuItem } from './dropdown-menu.component';
 
 export interface TableColumn {
   key: string;
@@ -34,7 +35,7 @@ export interface RowAction {
 @Component({
   selector: 'app-entity-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityDrawerComponent],
+  imports: [CommonModule, FormsModule, EntityDrawerComponent, DropdownMenuComponent],
   template: `
     <div class="page-header">
       <div>
@@ -124,14 +125,10 @@ export interface RowAction {
                   </td>
                 }
                 <td class="actions-col">
-                  @for (a of rowActions; track a.key) {
-                    @if (!a.show || a.show(item)) {
-                      <button class="action-btn" [title]="a.title" (click)="rowAction.emit({ key: a.key, item }); $event.stopPropagation()">{{ a.icon }}</button>
-                    }
-                  }
-                  <button class="action-btn" title="View" (click)="openView(item); $event.stopPropagation()">→</button>
-                  <button class="action-btn" title="Edit" (click)="openEdit(item); $event.stopPropagation()">✎</button>
-                  <button class="action-btn danger" title="Delete" (click)="onDelete(item); $event.stopPropagation()">🗑</button>
+                  <app-dropdown-menu
+                    [items]="getMenuItems(item)"
+                    (selected)="onMenuAction($event, item)"
+                  />
                 </td>
               </tr>
             } @empty {
@@ -373,26 +370,9 @@ export interface RowAction {
     }
 
     .actions-col {
-      width: 80px;
+      width: 50px;
       text-align: center;
     }
-
-    .action-btn {
-      width: 28px;
-      height: 28px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      background: var(--surface);
-      cursor: pointer;
-      font-size: 13px;
-      margin: 0 2px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .action-btn:hover { background: var(--fill-subtle); }
-    .action-btn.danger { color: var(--red-fg); border-color: var(--red-bg); }
-    .action-btn.danger:hover { background: var(--red-bg); }
 
     .empty-row {
       text-align: center;
@@ -647,5 +627,31 @@ export class EntityListComponent implements OnInit {
 
   onExport() {
     // TODO: implement CSV/PDF export
+  }
+
+  getMenuItems(item: any): DropdownMenuItem[] {
+    const items: DropdownMenuItem[] = [];
+    for (const a of this.rowActions) {
+      if (!a.show || a.show(item)) {
+        items.push({ label: a.title, icon: a.icon });
+      }
+    }
+    items.push({ label: 'View', icon: '→' });
+    items.push({ label: 'Edit', icon: '✎' });
+    items.push({ label: 'Delete', icon: '🗑', danger: true });
+    return items;
+  }
+
+  onMenuAction(index: number, item: any) {
+    const customCount = this.rowActions.filter(a => !a.show || a.show(item)).length;
+    if (index < customCount) {
+      this.rowAction.emit({ key: this.rowActions[index].key, item });
+    } else if (index === customCount) {
+      this.openView(item);
+    } else if (index === customCount + 1) {
+      this.openEdit(item);
+    } else {
+      this.onDelete(item);
+    }
   }
 }

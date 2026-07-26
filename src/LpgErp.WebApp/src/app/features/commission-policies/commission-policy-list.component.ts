@@ -1,6 +1,7 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EntityListComponent, EntityConfig, RowAction } from '../../shared/entity-list.component';
 import { ApiService } from '../../core/api.service';
 import { CommissionPolicy } from '../../core/commission.models';
 import { DialogComponent } from '../../shared/dialog.component';
@@ -10,65 +11,18 @@ interface EntityOption { id: string; name: string; }
 @Component({
   selector: 'app-commission-policy-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent],
+  imports: [CommonModule, FormsModule, EntityListComponent, DialogComponent],
   template: `
-    <div class="page-header">
-      <h2>Commission Policies</h2>
-      <button class="btn btn-primary" (click)="openCreate()">+ New Policy</button>
-    </div>
-
-    <div class="filters">
-      <select [(ngModel)]="filterType" (change)="loadPolicies()">
-        <option [ngValue]="-1">All Types</option>
-        <option [ngValue]="0">Salesman</option>
-        <option [ngValue]="1">Customer</option>
-        <option [ngValue]="2">Supplier</option>
-        <option [ngValue]="3">Driver</option>
-      </select>
-    </div>
-
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Entity</th>
-          <th>Target</th>
-          <th>Commission</th>
-          <th>Period</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (item of items(); track item.id) {
-          <tr>
-            <td>
-              <div class="policy-name">{{ item.name }}</div>
-              <div class="policy-desc">{{ item.description || '-' }}</div>
-            </td>
-            <td><span class="badge" [class]="entityBadge(item.entityType)">{{ entityLabel(item.entityType) }}</span></td>
-            <td>{{ item.entityName || getEntityNameLocal(item.entityType, item.entityId) || item.entityId }}</td>
-            <td>{{ item.targetQuantity }} units</td>
-            <td>
-              @if (item.calculationType === 0) { {{ item.commissionValue }}% }
-              @else if (item.calculationType === 1) { ৳{{ item.commissionValue }} }
-              @else if (item.calculationType === 2) { ৳{{ item.commissionValue }}/unit }
-              @else if (item.calculationType === 3) { ৳{{ item.commissionValue }} bonus }
-              @else { Tiered }
-            </td>
-            <td>{{ periodLabel(item.periodType) }}</td>
-            <td><span class="badge" [class]="item.isActive ? 'badge-green' : 'badge-gray'">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
-            <td>
-              <button class="btn btn-sm" (click)="editPolicy(item)">Edit</button>
-              <button class="btn btn-sm btn-danger" (click)="deletePolicy(item.id)">Delete</button>
-            </td>
-          </tr>
-        } @empty {
-          <tr><td colspan="8" class="text-center">No commission policies found</td></tr>
-        }
-      </tbody>
-    </table>
+    <app-entity-list
+      [config]="config"
+      [tabs]="tabs"
+      [tabField]="'entityType'"
+      [searchFields]="searchFields"
+      [useCustomForm]="true"
+      [reloadSignal]="reloadTick()"
+      (newRequested)="openCreate()"
+      (editRequested)="editPolicy($event)"
+    />
 
     <app-dialog [open]="dialogOpen()" [title]="editingId ? 'Edit Policy' : 'New Policy'" (close)="dialogOpen.set(false)">
       <form (ngSubmit)="submit()">
@@ -143,49 +97,42 @@ interface EntityOption { id: string; name: string; }
           <label><input type="checkbox" [(ngModel)]="form.autoApply" name="autoApply" /> Auto-calculate at period end</label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" (click)="dialogOpen.set(false)">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="saving()">Save</button>
+          <button type="button" class="btn-cancel" (click)="dialogOpen.set(false)">Cancel</button>
+          <button type="submit" class="btn-save" [disabled]="saving()">Save</button>
         </div>
       </form>
     </app-dialog>
   `,
   styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    .page-header h2 { margin: 0; }
-    .filters { margin-bottom: 1rem; }
-    .filters select { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
-    .table { width: 100%; border-collapse: collapse; }
-    .table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
-    .table th { font-weight: 600; font-size: 0.85rem; color: #666; }
-    .policy-name { font-weight: 600; }
-    .policy-desc { font-size: 0.8rem; color: #888; }
-    .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-    .badge-blue { background: #eff6ff; color: #1d4ed8; }
-    .badge-green { background: #f0fdf4; color: #15803d; }
-    .badge-purple { background: #faf5ff; color: #7e22ce; }
-    .badge-gray { background: #f4f5f7; color: #6b7280; }
-    .badge-orange { background: #fff7ed; color: #c2410c; }
-    .text-center { text-align: center; color: #999; }
     .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; }
-    .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+    .form-group input, .form-group select {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border-input); border-radius: 7px;
+      font-size: 13px; box-sizing: border-box; background: var(--surface); color: var(--text-primary);
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(234,88,12,0.12); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
-    .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
-    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
-    .btn-primary { background: #1a1a2e; color: white; border-color: #1a1a2e; }
-    .btn-secondary { background: white; color: #333; }
-    .btn-danger { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1.5rem; }
+    .btn-cancel {
+      padding: 9px 18px; border-radius: 7px; border: 1px solid var(--border-input);
+      background: var(--surface); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-cancel:hover { background: var(--fill-subtle); }
+    .btn-save {
+      padding: 9px 18px; border-radius: 7px; border: none; background: var(--primary);
+      color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-btn);
+    }
+    .btn-save:hover { background: var(--primary-hover); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
   `]
 })
-export class CommissionPolicyListComponent implements OnInit {
+export class CommissionPolicyListComponent {
   private api = inject(ApiService);
 
-  items = signal<CommissionPolicy[]>([]);
   dialogOpen = signal(false);
   saving = signal(false);
   editingId = '';
-  filterType = -1;
+  reloadTick = signal(0);
 
   entityOptions = signal<EntityOption[]>([]);
   private allSalesmen: EntityOption[] = [];
@@ -195,17 +142,34 @@ export class CommissionPolicyListComponent implements OnInit {
 
   form = this.getEmptyForm();
 
-  ngOnInit() {
-    this.loadPolicies();
-    this.loadEntityLists();
-  }
+  readonly tabs = [
+    { label: 'Salesman', value: '0' },
+    { label: 'Customer', value: '1' },
+    { label: 'Supplier', value: '2' },
+    { label: 'Driver', value: '3' },
+  ];
 
-  loadPolicies() {
-    this.api.getAll<CommissionPolicy>('commissionpolicies').subscribe(data => {
-      let items = data.items || [];
-      if (this.filterType >= 0) items = items.filter(i => i.entityType === this.filterType);
-      this.items.set(items);
-    });
+  readonly config: EntityConfig = {
+    endpoint: 'commissionpolicies',
+    title: 'Commission Policies',
+    singular: 'Commission Policy',
+    cols: [
+      { key: 'name', label: 'Name', kind: 'main', sub: 'description' },
+      { key: 'entityType', label: 'Type', kind: 'badge', badgeMap: { '0': ['Salesman', '#eff6ff', '#1d4ed8'], '1': ['Customer', '#f0fdf4', '#15803d'], '2': ['Supplier', '#faf5ff', '#7e22ce'], '3': ['Driver', '#fff7ed', '#c2410c'] } },
+      { key: 'targetQuantity', label: 'Target', kind: 'num' },
+      { key: 'commissionValue', label: 'Commission', kind: 'money' },
+      { key: 'periodType', label: 'Period', kind: 'badge', badgeMap: { '0': ['One Time', '#f4f5f7', '#6b7280'], '1': ['Weekly', '#eff6ff', '#1d4ed8'], '2': ['Monthly', '#f0fdf4', '#15803d'], '3': ['Yearly', '#faf5ff', '#7e22ce'] } },
+      { key: 'isActive', label: 'Status', kind: 'badge', badgeMap: { true: ['Active', '#f0fdf4', '#15803d'], false: ['Inactive', '#f4f5f7', '#6b7280'] } },
+    ],
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true },
+      { key: 'description', label: 'Description', type: 'text' },
+    ],
+  };
+  readonly searchFields = ['name', 'description'];
+
+  ngOnInit() {
+    this.loadEntityLists();
   }
 
   private loadEntityLists() {
@@ -253,29 +217,25 @@ export class CommissionPolicyListComponent implements OnInit {
 
   submit() {
     this.saving.set(true);
-    const body = { ...this.form, entityId: this.form.entityId, startDate: new Date(this.form.startDate).toISOString(), endDate: this.form.endDate ? new Date(this.form.endDate).toISOString() : null };
+    const body = {
+      ...this.form,
+      entityId: this.form.entityId,
+      productId: this.form.productId || null,
+      brandId: this.form.brandId || null,
+      cylinderSizeId: this.form.cylinderSizeId || null,
+      startDate: new Date(this.form.startDate).toISOString(),
+      endDate: this.form.endDate ? new Date(this.form.endDate).toISOString() : null
+    };
     const req$ = this.editingId
       ? this.api.update('commissionpolicies', this.editingId, body)
       : this.api.create('commissionpolicies', body);
     req$.subscribe({
-      next: () => { this.saving.set(false); this.dialogOpen.set(false); this.loadPolicies(); },
-      error: () => this.saving.set(false)
+      next: () => { this.saving.set(false); this.dialogOpen.set(false); this.reloadTick.update(v => v + 1); },
+      error: (err) => { this.saving.set(false); console.error('Commission policy save error:', err); }
     });
   }
 
-  deletePolicy(id: string) {
-    if (!confirm('Delete this policy?')) return;
-    this.api.delete('commissionpolicies', id).subscribe(() => this.loadPolicies());
-  }
-
   entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier', 'Driver'][type] || 'Unknown'; }
-  entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple', 'badge-orange'][type] || ''; }
-  periodLabel(type: number): string { return ['One Time', 'Weekly', 'Monthly', 'Yearly'][type] || ''; }
-
-  getEntityNameLocal(type: number, id: string): string {
-    const list = this.getEntitiesForType(type);
-    return list.find(e => e.id === id)?.name || '';
-  }
 
   private getEntitiesForType(type: number): EntityOption[] {
     return [this.allSalesmen, this.allCustomers, this.allSuppliers, this.allDrivers][type] || [];

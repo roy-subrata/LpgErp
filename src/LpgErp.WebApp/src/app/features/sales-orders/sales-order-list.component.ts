@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SalesOrder } from '../../core/models';
 import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.component';
+import { DropdownMenuComponent, DropdownMenuItem } from '../../shared/dropdown-menu.component';
 import { SalesOrderFormComponent } from './sales-order-form.component';
 
 @Component({
   selector: 'app-sales-order-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityDrawerComponent, SalesOrderFormComponent],
+  imports: [CommonModule, FormsModule, EntityDrawerComponent, DropdownMenuComponent, SalesOrderFormComponent],
   template: `
     <div class="page-header">
       <h1 class="page-title">Sales Orders</h1>
@@ -77,8 +78,10 @@ import { SalesOrderFormComponent } from './sales-order-form.component';
                   </span>
                 </td>
                 <td class="actions-col">
-                  <button class="action-btn" (click)="openView(item); $event.stopPropagation()">→</button>
-                  <button class="action-btn" (click)="openEdit(item); $event.stopPropagation()">✎</button>
+                  <app-dropdown-menu
+                    [items]="getMenuItems(item)"
+                    (selected)="onMenuAction($event, item)"
+                  />
                 </td>
               </tr>
             } @empty {
@@ -303,21 +306,7 @@ import { SalesOrderFormComponent } from './sales-order-form.component';
       font-weight: 600;
     }
 
-    .actions-col { width: 70px; text-align: center; }
-
-    .action-btn {
-      width: 28px; height: 28px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      background: var(--surface);
-      cursor: pointer;
-      font-size: 13px;
-      margin: 0 2px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .action-btn:hover { background: var(--fill-subtle); }
+    .actions-col { width: 50px; text-align: center; }
 
     .empty-row { text-align: center; padding: 40px 14px !important; color: var(--text-muted); }
 
@@ -513,6 +502,18 @@ export class SalesOrderListComponent implements OnInit {
   onFormSaved() {
     this.formOpen.set(false);
     this.api.getAll<SalesOrder>('salesorders').subscribe(d => this.items.set(d.items));
+  }
+
+  getMenuItems(item: any): DropdownMenuItem[] {
+    return [
+      { label: 'View', icon: '→' },
+      { label: 'Edit', icon: '✎' },
+    ];
+  }
+
+  onMenuAction(index: number, item: any) {
+    if (index === 0) this.openView(item);
+    else if (index === 1) this.openEdit(item);
   }
 
   formatMoney(val: number): string {

@@ -5,12 +5,13 @@ import { RouterModule } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.component';
+import { DropdownMenuComponent, DropdownMenuItem } from '../../shared/dropdown-menu.component';
 import { FinancialReport } from '../../core/models';
 
 @Component({
   selector: 'app-salesman-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, EntityDrawerComponent],
+  imports: [CommonModule, FormsModule, RouterModule, EntityDrawerComponent, DropdownMenuComponent],
   template: `
     <div class="page-header">
       <div>
@@ -94,9 +95,10 @@ import { FinancialReport } from '../../core/models';
                   <span class="badge" [style.background]="item.isActive ? '#f0fdf4' : '#f4f5f7'" [style.color]="item.isActive ? '#15803d' : '#6b7280'">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
                 </td>
                 <td class="actions-col">
-                  <button class="action-btn" title="View" (click)="openView(item); $event.stopPropagation()">→</button>
-                  <button class="action-btn" title="Edit" (click)="openEdit(item); $event.stopPropagation()">✎</button>
-                  <button class="action-btn danger" title="Delete" (click)="onDelete(item); $event.stopPropagation()">🗑</button>
+                  <app-dropdown-menu
+                    [items]="getMenuItems(item)"
+                    (selected)="onMenuAction($event, item)"
+                  />
                 </td>
               </tr>
             } @empty {
@@ -170,11 +172,7 @@ import { FinancialReport } from '../../core/models';
     .mono-text { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
     .muted-text { font-size: 12px; color: var(--text-muted); }
     .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
-    .actions-col { width: 80px; text-align: center; }
-    .action-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; font-size: 13px; margin: 0 2px; display: inline-flex; align-items: center; justify-content: center; }
-    .action-btn:hover { background: var(--fill-subtle); }
-    .action-btn.danger { color: var(--red-fg); border-color: var(--red-bg); }
-    .action-btn.danger:hover { background: var(--red-bg); }
+    .actions-col { width: 50px; text-align: center; }
     .empty-row { text-align: center; padding: 40px 14px !important; color: var(--text-muted); }
     .table-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border-row); }
     .footer-info { font-size: 12px; color: var(--text-muted); }
@@ -287,6 +285,20 @@ export class SalesmanListComponent implements OnInit {
   }
 
   onExport() {}
+
+  getMenuItems(item: any): DropdownMenuItem[] {
+    return [
+      { label: 'View', icon: '→' },
+      { label: 'Edit', icon: '✎' },
+      { label: 'Delete', icon: '🗑', danger: true },
+    ];
+  }
+
+  onMenuAction(index: number, item: any) {
+    if (index === 0) this.openView(item);
+    else if (index === 1) this.openEdit(item);
+    else this.onDelete(item);
+  }
 
   formatMoney(val: number): string {
     if (!val) return '0';

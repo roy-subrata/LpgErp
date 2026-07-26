@@ -19,22 +19,30 @@ interface NavGroup {
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <div class="app-shell">
-      <nav class="sidebar">
+      <nav class="sidebar" [class.collapsed]="sidebarCollapsed()">
         <div class="sidebar-header">
           <div class="brand-logo">L</div>
-          <div class="brand-text">
-            <div class="brand-title">LPG ERP</div>
-            <div class="brand-subtitle">DISTRIBUTOR SUITE</div>
-          </div>
+          @if (!sidebarCollapsed()) {
+            <div class="brand-text">
+              <div class="brand-title">LPG ERP</div>
+              <div class="brand-subtitle">DISTRIBUTOR SUITE</div>
+            </div>
+          }
         </div>
 
         <div class="nav-body">
           @for (group of navGroups; track group.title) {
-            <div class="nav-group-label">{{ group.title }}</div>
+            @if (!sidebarCollapsed()) {
+              <div class="nav-group-label">{{ group.title }}</div>
+            } @else {
+              <div class="nav-group-divider"></div>
+            }
             @for (item of group.items; track item.route) {
-              <a class="nav-item" [routerLink]="item.route" routerLinkActive="active">
+              <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
                 <span class="nav-icon">{{ item.icon }}</span>
-                <span class="nav-label">{{ item.label }}</span>
+                @if (!sidebarCollapsed()) {
+                  <span class="nav-label">{{ item.label }}</span>
+                }
               </a>
             }
           }
@@ -42,19 +50,26 @@ interface NavGroup {
 
         <div class="sidebar-footer">
           <div class="user-avatar">SR</div>
-          <div class="user-info">
-            <div class="user-name">Subrata Roy</div>
-            <div class="user-role">Admin</div>
-          </div>
+          @if (!sidebarCollapsed()) {
+            <div class="user-info">
+              <div class="user-name">Subrata Roy</div>
+              <div class="user-role">Admin</div>
+            </div>
+          }
         </div>
       </nav>
 
       <div class="main-area">
         <header class="topbar">
-          <div class="breadcrumb">
-            <span class="breadcrumb-muted">LPG ERP</span>
-            <span class="breadcrumb-sep">/</span>
-            <span class="breadcrumb-active">{{ currentPageLabel() }}</span>
+          <div class="topbar-left">
+            <button class="toggle-btn" (click)="toggleSidebar()" [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+              <span class="toggle-icon">{{ sidebarCollapsed() ? '☰' : '✕' }}</span>
+            </button>
+            <div class="breadcrumb">
+              <span class="breadcrumb-muted">LPG ERP</span>
+              <span class="breadcrumb-sep">/</span>
+              <span class="breadcrumb-active">{{ currentPageLabel() }}</span>
+            </div>
           </div>
           <div class="topbar-right">
             <div class="search-pill">
@@ -91,6 +106,12 @@ interface NavGroup {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: width 0.2s ease, min-width 0.2s ease;
+    }
+
+    .sidebar.collapsed {
+      width: 62px;
+      min-width: 62px;
     }
 
     .sidebar-header {
@@ -99,6 +120,11 @@ interface NavGroup {
       gap: 10px;
       padding: 18px 18px 16px;
       border-bottom: 1px solid var(--sidebar-divider);
+    }
+
+    .sidebar.collapsed .sidebar-header {
+      justify-content: center;
+      padding: 18px 0 16px;
     }
 
     .brand-logo {
@@ -136,6 +162,10 @@ interface NavGroup {
       padding: 8px 10px;
     }
 
+    .sidebar.collapsed .nav-body {
+      padding: 8px 0;
+    }
+
     .nav-group-label {
       font-size: 10px;
       font-weight: 700;
@@ -143,6 +173,12 @@ interface NavGroup {
       text-transform: uppercase;
       letter-spacing: 0.12em;
       padding: 14px 10px 5px;
+    }
+
+    .nav-group-divider {
+      height: 1px;
+      background: var(--sidebar-divider);
+      margin: 6px 8px;
     }
 
     .nav-item {
@@ -157,6 +193,11 @@ interface NavGroup {
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
       cursor: pointer;
+    }
+
+    .sidebar.collapsed .nav-item {
+      justify-content: center;
+      padding: 7px 0;
     }
 
     .nav-item:hover {
@@ -183,6 +224,11 @@ interface NavGroup {
       gap: 10px;
       padding: 12px 18px;
       border-top: 1px solid var(--sidebar-divider);
+    }
+
+    .sidebar.collapsed .sidebar-footer {
+      justify-content: center;
+      padding: 12px 0;
     }
 
     .user-avatar {
@@ -228,6 +274,32 @@ interface NavGroup {
       display: flex;
       align-items: center;
       justify-content: space-between;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toggle-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .toggle-btn:hover {
+      background: var(--fill-subtle);
+    }
+    .toggle-icon {
+      font-size: 16px;
+      color: var(--text-secondary);
     }
 
     .breadcrumb {
@@ -334,6 +406,8 @@ interface NavGroup {
   `],
 })
 export class AppComponent {
+  sidebarCollapsed = signal(false);
+
   navGroups: NavGroup[] = [
     {
       title: 'Overview',
@@ -454,5 +528,9 @@ export class AppComponent {
         return this.routeLabelMap[path] || 'Dashboard';
       }),
     ).subscribe(label => this.currentPageLabel.set(label));
+  }
+
+  toggleSidebar() {
+    this.sidebarCollapsed.update(v => !v);
   }
 }
