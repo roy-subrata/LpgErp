@@ -80,7 +80,6 @@ public class UpdateSalesOrderRequest : IMapTo<SalesOrder>
 {
     public Guid CustomerId { get; set; }
     public Guid WarehouseId { get; set; }
-    public SalesOrderStatus Status { get; set; }
     public decimal Discount { get; set; }
     public string? Notes { get; set; }
     public bool IsCreditSale { get; set; }

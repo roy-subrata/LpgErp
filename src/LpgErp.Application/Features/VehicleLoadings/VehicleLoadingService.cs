@@ -316,7 +316,7 @@ public class VehicleLoadingService : IVehicleLoadingService
                 if (gone > 0)
                 {
                     var product = await _context.Products.FindAsync([item.ProductId], ct);
-                    if (product is not null) product.CurrentStock -= gone;
+                    if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - gone);
                 }
                 if (unrecordedSold > 0)
                 {

@@ -79,7 +79,6 @@ public class UpdatePurchaseOrderRequest : IMapTo<PurchaseOrder>
 {
     public Guid SupplierId { get; set; }
     public Guid WarehouseId { get; set; }
-    public PurchaseOrderStatus Status { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime? DueDate { get; set; }

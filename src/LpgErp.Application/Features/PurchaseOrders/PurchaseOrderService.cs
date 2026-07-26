@@ -66,7 +66,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     {
         var order = new PurchaseOrder
         {
-            OrderNumber = $"PO-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            OrderNumber = $"PO-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
             SupplierId = request.SupplierId,
             WarehouseId = request.WarehouseId,
             Status = PurchaseOrderStatus.Draft,
@@ -116,7 +116,6 @@ public class PurchaseOrderService : IPurchaseOrderService
 
         entity.SupplierId = request.SupplierId;
         entity.WarehouseId = request.WarehouseId;
-        entity.Status = request.Status;
         entity.ExpectedDeliveryDate = request.ExpectedDeliveryDate;
         entity.ReceivedDate = request.ReceivedDate;
         entity.DueDate = request.DueDate;
@@ -199,6 +198,16 @@ public class PurchaseOrderService : IPurchaseOrderService
             var orderItem = entity.Items.FirstOrDefault(i => i.ProductId == receiveItem.ProductId);
             if (orderItem is not null)
             {
+                if (receiveItem.ReceivedQuantity < 0 || receiveItem.DamagedQuantity < 0 || receiveItem.MissingQuantity < 0)
+                    return Result<PurchaseOrderDto>.Failure("Quantities cannot be negative.");
+
+                var remainingToReceive = orderItem.OrderedQuantity - orderItem.ReceivedQuantity;
+                if (receiveItem.ReceivedQuantity > remainingToReceive)
+                    return Result<PurchaseOrderDto>.Failure($"Cannot receive {receiveItem.ReceivedQuantity} of product {orderItem.ProductId}. Only {remainingToReceive} remaining to receive.");
+
+                if (receiveItem.DamagedQuantity > receiveItem.ReceivedQuantity)
+                    return Result<PurchaseOrderDto>.Failure("Damaged quantity cannot exceed received quantity.");
+
                 orderItem.ReceivedQuantity += receiveItem.ReceivedQuantity;
                 orderItem.DamagedQuantity += receiveItem.DamagedQuantity;
                 orderItem.MissingQuantity += receiveItem.MissingQuantity;

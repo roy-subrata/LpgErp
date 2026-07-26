@@ -49,35 +49,45 @@ public class StockTransferService : IStockTransferService
 
         var toStock = await _context.StockLevels.FirstOrDefaultAsync(s => s.WarehouseId == request.ToWarehouseId && s.ProductId == request.ProductId, ct);
 
-        fromStock.Quantity -= request.Quantity;
-        if (toStock is null)
+        await _unitOfWork.BeginTransactionAsync(ct);
+        try
         {
-            toStock = new StockLevel { WarehouseId = request.ToWarehouseId, ProductId = request.ProductId, Quantity = request.Quantity };
-            await _context.StockLevels.AddAsync(toStock, ct);
-        }
-        else
-        {
-            toStock.Quantity += request.Quantity;
-        }
+            fromStock.Quantity -= request.Quantity;
+            if (toStock is null)
+            {
+                toStock = new StockLevel { WarehouseId = request.ToWarehouseId, ProductId = request.ProductId, Quantity = request.Quantity };
+                await _context.StockLevels.AddAsync(toStock, ct);
+            }
+            else
+            {
+                toStock.Quantity += request.Quantity;
+            }
 
-        var movement = new StockMovement
+            await _context.StockMovements.AddAsync(new StockMovement
+            {
+                ProductId = request.ProductId,
+                Type = StockMovementType.TransferOut,
+                Quantity = request.Quantity,
+                FromWarehouseId = request.FromWarehouseId,
+                ToWarehouseId = request.ToWarehouseId,
+                Reference = request.Reference,
+                MovementDate = DateTime.UtcNow
+            }, ct);
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            await _unitOfWork.CommitTransactionAsync(ct);
+        }
+        catch
         {
-            ProductId = request.ProductId,
-            Type = StockMovementType.TransferOut,
-            Quantity = request.Quantity,
-            FromWarehouseId = request.FromWarehouseId,
-            ToWarehouseId = request.ToWarehouseId,
-            Reference = request.Reference,
-            MovementDate = DateTime.UtcNow
-        };
-        await _context.StockMovements.AddAsync(movement, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
+            await _unitOfWork.RollbackTransactionAsync(ct);
+            throw;
+        }
 
         var fromWarehouse = await _context.Warehouses.FindAsync([request.FromWarehouseId], ct);
         var toWarehouse = await _context.Warehouses.FindAsync([request.ToWarehouseId], ct);
 
         return Result<StockTransferResponse>.Success(new StockTransferResponse(
-            movement.Id, request.Quantity, product.Name,
+            Guid.Empty, request.Quantity, product.Name,
             fromWarehouse?.Name ?? "", toWarehouse?.Name ?? ""));
     }
 

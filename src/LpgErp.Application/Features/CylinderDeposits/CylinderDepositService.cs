@@ -44,6 +44,21 @@ public class CylinderDepositService : ICylinderDepositService
 
     public async Task<Result<CylinderDepositDto>> CreateAsync(CreateCylinderDepositRequest request, CancellationToken ct = default)
     {
+        if (request.Amount <= 0) return Result<CylinderDepositDto>.Failure("Amount must be greater than zero.");
+        if (request.Quantity <= 0) return Result<CylinderDepositDto>.Failure("Quantity must be greater than zero.");
+
+        if (request.Type == CylinderDepositType.Refund)
+        {
+            var totalPaid = await _context.CylinderDeposits
+                .Where(d => !d.IsDeleted && d.CustomerId == request.CustomerId && d.CylinderSizeId == request.CylinderSizeId && d.Type == CylinderDepositType.Paid)
+                .SumAsync(d => d.Amount, ct);
+            var totalRefunded = await _context.CylinderDeposits
+                .Where(d => !d.IsDeleted && d.CustomerId == request.CustomerId && d.CylinderSizeId == request.CylinderSizeId && d.Type == CylinderDepositType.Refund)
+                .SumAsync(d => d.Amount, ct);
+            if (totalPaid - totalRefunded < request.Amount)
+                return Result<CylinderDepositDto>.Failure($"Refund amount ({request.Amount:N2}) exceeds available deposit balance ({totalPaid - totalRefunded:N2}).");
+        }
+
         var entity = _mapper.Map<CylinderDeposit>(request);
         entity.DepositDate = DateTime.UtcNow;
         await _context.CylinderDeposits.AddAsync(entity, ct);
@@ -65,7 +80,15 @@ public class CylinderDepositService : ICylinderDepositService
         var entity = await _context.CylinderDeposits.FindAsync([id], ct);
         if (entity is null || entity.IsDeleted) return Result<CylinderDepositDto>.Failure("Cylinder deposit not found.");
 
-        _mapper.Map(request, entity);
+        if (request.Amount <= 0) return Result<CylinderDepositDto>.Failure("Amount must be greater than zero.");
+        if (request.Quantity <= 0) return Result<CylinderDepositDto>.Failure("Quantity must be greater than zero.");
+        if (request.Type != entity.Type) return Result<CylinderDepositDto>.Failure("Deposit type cannot be changed. Create a new entry instead.");
+        if (request.CustomerId != entity.CustomerId) return Result<CylinderDepositDto>.Failure("Customer cannot be changed on an existing deposit.");
+
+        entity.Amount = request.Amount;
+        entity.Quantity = request.Quantity;
+        entity.Reference = request.Reference;
+        entity.Notes = request.Notes;
         await _unitOfWork.SaveChangesAsync(ct);
 
         var result = await _context.CylinderDeposits.Include(d => d.Customer).Include(d => d.CylinderSize).FirstOrDefaultAsync(d => d.Id == entity.Id, ct);

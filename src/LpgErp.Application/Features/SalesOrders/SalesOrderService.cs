@@ -79,7 +79,7 @@ public class SalesOrderService : ISalesOrderService
     {
         var order = new SalesOrder
         {
-            OrderNumber = $"SO-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            OrderNumber = $"SO-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
             CustomerId = request.CustomerId,
             WarehouseId = request.WarehouseId,
             Status = SalesOrderStatus.Draft,
@@ -127,7 +127,6 @@ public class SalesOrderService : ISalesOrderService
 
         entity.CustomerId = request.CustomerId;
         entity.WarehouseId = request.WarehouseId;
-        entity.Status = request.Status;
         entity.Discount = request.Discount;
         entity.Notes = request.Notes;
         entity.IsCreditSale = request.IsCreditSale;
@@ -223,7 +222,7 @@ public class SalesOrderService : ISalesOrderService
                 foreach (var item in entity.Items)
                 {
                     var product = await _context.Products.FindAsync([item.ProductId], cancellationToken);
-                    if (product is not null) product.CurrentStock -= item.Quantity;
+                    if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - item.Quantity);
 
                     // Live-update the loading's sold counter so the vehicle card shows real progress.
                     var loadingItem = loading.Items.FirstOrDefault(l => l.ProductId == item.ProductId);
@@ -277,7 +276,7 @@ public class SalesOrderService : ISalesOrderService
                 stockByProduct[productId].Quantity -= qty;
 
                 var product = await _context.Products.FindAsync([productId], cancellationToken);
-                if (product is not null) product.CurrentStock -= qty;
+                if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - qty);
 
                 await _context.StockMovements.AddAsync(new StockMovement
                 {

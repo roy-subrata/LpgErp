@@ -61,6 +61,37 @@ public class PaymentService : IPaymentService
 
     public async Task<Result<PaymentDto>> CreateAsync(CreatePaymentRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.Amount <= 0) return Result<PaymentDto>.Failure("Payment amount must be greater than zero.");
+
+        if (request.Direction == PaymentDirection.Inbound && request.SalesOrderId is Guid soId)
+        {
+            var order = await _context.SalesOrders.FindAsync([soId], cancellationToken);
+            if (order is null) return Result<PaymentDto>.Failure("Sales order not found.");
+
+            var totalPaid = await _context.Payments
+                .Where(p => !p.IsDeleted && p.SalesOrderId == soId && p.Direction == PaymentDirection.Inbound)
+                .SumAsync(p => p.Amount, cancellationToken);
+            if (totalPaid + request.Amount > order.NetAmount)
+                return Result<PaymentDto>.Failure($"Payment ({request.Amount:N2}) exceeds outstanding balance ({order.NetAmount - totalPaid:N2}).");
+        }
+
+        if (request.Direction == PaymentDirection.Outbound && request.PurchaseOrderId is Guid poId)
+        {
+            var order = await _context.PurchaseOrders.FindAsync([poId], cancellationToken);
+            if (order is null) return Result<PaymentDto>.Failure("Purchase order not found.");
+
+            var totalPaid = await _context.Payments
+                .Where(p => !p.IsDeleted && p.PurchaseOrderId == poId && p.Direction == PaymentDirection.Outbound)
+                .SumAsync(p => p.Amount, cancellationToken);
+            if (totalPaid + request.Amount > order.TotalAmount + order.TransportationCost - order.CommissionApplied)
+                return Result<PaymentDto>.Failure($"Payment ({request.Amount:N2}) exceeds outstanding balance.");
+        }
+
+        if (request.Direction == PaymentDirection.Inbound && request.PurchaseOrderId is not null)
+            return Result<PaymentDto>.Failure("Inbound payments cannot be linked to a purchase order.");
+        if (request.Direction == PaymentDirection.Outbound && request.SalesOrderId is not null)
+            return Result<PaymentDto>.Failure("Outbound payments cannot be linked to a sales order.");
+
         var entity = _mapper.Map<Payment>(request);
         await _context.Payments.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
