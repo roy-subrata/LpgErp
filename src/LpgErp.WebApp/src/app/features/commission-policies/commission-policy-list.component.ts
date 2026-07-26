@@ -21,6 +21,7 @@ import { DialogComponent } from '../../shared/dialog.component';
         <option [ngValue]="0">Salesman</option>
         <option [ngValue]="1">Customer</option>
         <option [ngValue]="2">Supplier</option>
+        <option [ngValue]="3">Driver</option>
       </select>
     </div>
 
@@ -82,6 +83,7 @@ import { DialogComponent } from '../../shared/dialog.component';
               <option [ngValue]="0">Salesman</option>
               <option [ngValue]="1">Customer</option>
               <option [ngValue]="2">Supplier</option>
+        <option [ngValue]="3">Driver</option>
             </select>
           </div>
           <div class="form-group">
@@ -153,6 +155,7 @@ import { DialogComponent } from '../../shared/dialog.component';
     .badge-green { background: #f0fdf4; color: #15803d; }
     .badge-purple { background: #faf5ff; color: #7e22ce; }
     .badge-gray { background: #f4f5f7; color: #6b7280; }
+    .badge-orange { background: #fff7ed; color: #c2410c; }
     .text-center { text-align: center; color: #999; }
     .form-group { margin-bottom: 1rem; }
     .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; }
@@ -233,8 +236,8 @@ export class CommissionPolicyListComponent implements OnInit {
     this.api.delete('commissionpolicies', id).subscribe(() => this.loadPolicies());
   }
 
-  entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier'][type] || 'Unknown'; }
-  entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple'][type] || ''; }
+  entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier', 'Driver'][type] || 'Unknown'; }
+  entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple', 'badge-orange'][type] || ''; }
   periodLabel(type: number): string { return ['One Time', 'Weekly', 'Monthly', 'Yearly'][type] || ''; }
 
   private getEmptyForm() {

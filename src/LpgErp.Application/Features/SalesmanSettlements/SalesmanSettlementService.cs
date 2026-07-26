@@ -1,6 +1,7 @@
 using AutoMapper;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using LpgErp.Application.Features.CommissionLedgers;
 using LpgErp.Application.Features.SalesmanSettlements.DTOs;
 using LpgErp.Domain.Entities;
 using LpgErp.Domain.Interfaces;
@@ -22,12 +23,14 @@ public class SalesmanSettlementService : ISalesmanSettlementService
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly ICommissionLedgerService _commissionLedgerService;
 
-    public SalesmanSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper)
+    public SalesmanSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, ICommissionLedgerService commissionLedgerService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _commissionLedgerService = commissionLedgerService;
     }
 
     public async Task<Result<PagedResult<SalesmanSettlementDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default)
@@ -49,6 +52,8 @@ public class SalesmanSettlementService : ISalesmanSettlementService
         await _context.SalesmanSettlements.AddAsync(entity, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
+        await AutoCalculateCommissionAsync(entity.SalesmanId, entity.SettlementDate, ct);
+
         var result = await _context.SalesmanSettlements.Include(s => s.Salesman).FirstOrDefaultAsync(s => s.Id == entity.Id, ct);
         return Result<SalesmanSettlementDto>.Success(_mapper.Map<SalesmanSettlementDto>(result));
     }
@@ -68,6 +73,8 @@ public class SalesmanSettlementService : ISalesmanSettlementService
         _mapper.Map(request, entity);
         await _unitOfWork.SaveChangesAsync(ct);
 
+        await AutoCalculateCommissionAsync(entity.SalesmanId, entity.SettlementDate, ct);
+
         var result = await _context.SalesmanSettlements.Include(s => s.Salesman).FirstOrDefaultAsync(s => s.Id == entity.Id, ct);
         return Result<SalesmanSettlementDto>.Success(_mapper.Map<SalesmanSettlementDto>(result));
     }
@@ -80,5 +87,16 @@ public class SalesmanSettlementService : ISalesmanSettlementService
         _context.SalesmanSettlements.Remove(entity);
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();
+    }
+
+    private async Task AutoCalculateCommissionAsync(Guid salesmanId, DateTime date, CancellationToken ct)
+    {
+        try
+        {
+            await _commissionLedgerService.CalculateAndRecordForPeriodAsync(CommissionEntityType.Salesman, salesmanId, date, ct);
+        }
+        catch
+        {
+        }
     }
 }

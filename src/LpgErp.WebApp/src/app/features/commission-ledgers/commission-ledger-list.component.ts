@@ -20,6 +20,7 @@ import { CommissionPolicy } from '../../core/commission.models';
         <option [ngValue]="0">Salesman</option>
         <option [ngValue]="1">Customer</option>
         <option [ngValue]="2">Supplier</option>
+        <option [ngValue]="3">Driver</option>
       </select>
       <select [(ngModel)]="filterStatus" (change)="loadLedger()">
         <option [ngValue]="-1">All Status</option>
@@ -95,6 +96,7 @@ import { CommissionPolicy } from '../../core/commission.models';
     .badge-purple { background: #faf5ff; color: #7e22ce; }
     .badge-yellow { background: #fefce8; color: #a16207; }
     .badge-gray { background: #f4f5f7; color: #6b7280; }
+    .badge-orange { background: #fff7ed; color: #c2410c; }
     .text-center { text-align: center; color: #999; }
     .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
     .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
@@ -132,8 +134,8 @@ export class CommissionLedgerListComponent implements OnInit {
   totalEarned(): number { return this.items().reduce((sum, i) => sum + i.commissionEarned, 0); }
   totalPending(): number { return this.items().filter(i => i.status === 1).reduce((sum, i) => sum + i.commissionEarned, 0); }
 
-  entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier'][type] || 'Unknown'; }
-  entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple'][type] || ''; }
+  entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier', 'Driver'][type] || 'Unknown'; }
+  entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple', 'badge-orange'][type] || ''; }
   statusLabel(status: number): string { return ['Pending', 'Earned', 'Applied', 'Expired', 'Cancelled'][status] || ''; }
   statusBadge(status: number): string { return ['badge-gray', 'badge-yellow', 'badge-green', 'badge-gray', 'badge-gray'][status] || ''; }
 }

@@ -180,6 +180,10 @@ public class CommissionLedgerService : ICommissionLedgerService
         {
             return await GetSupplierActualsAsync(policy, periodStart, periodEnd, ct);
         }
+        else if (policy.EntityType == CommissionEntityType.Driver)
+        {
+            return await GetDriverActualsAsync(policy, periodStart, periodEnd, ct);
+        }
 
         return (0, 0);
     }
@@ -242,6 +246,26 @@ public class CommissionLedgerService : ICommissionLedgerService
             items = items.Where(i => i.ProductId == policy.ProductId.Value).ToList();
 
         return (items.Sum(i => i.ReceivedQuantity), items.Sum(i => i.TotalPrice));
+    }
+
+    private async Task<(int quantity, decimal amount)> GetDriverActualsAsync(CommissionPolicy policy, DateTime start, DateTime end, CancellationToken ct)
+    {
+        var closings = await _context.VehicleClosings
+            .Where(vc => !vc.IsDeleted && vc.ClosingDate >= start && vc.ClosingDate <= end
+                && vc.VehicleLoading.DriverId == policy.EntityId)
+            .Include(vc => vc.Items).ThenInclude(i => i.Product)
+            .ToListAsync(ct);
+
+        var items = closings.SelectMany(vc => vc.Items).ToList();
+
+        if (policy.ProductId.HasValue)
+            items = items.Where(i => i.ProductId == policy.ProductId.Value).ToList();
+        else if (policy.BrandId.HasValue || policy.CylinderSizeId.HasValue)
+            items = items.Where(i => i.Product.BrandId == policy.BrandId || i.Product.CylinderSizeId == policy.CylinderSizeId).ToList();
+
+        var soldQty = items.Sum(i => i.SoldQuantity);
+        var amount = items.Sum(i => i.SoldQuantity * (i.Product?.SalePrice ?? 0m));
+        return (soldQty, amount);
     }
 
     private static DateTime GetPeriodStart(CommissionPeriodType periodType, DateTime date)

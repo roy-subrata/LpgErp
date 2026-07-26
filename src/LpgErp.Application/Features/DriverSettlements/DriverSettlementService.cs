@@ -1,6 +1,7 @@
 using AutoMapper;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using LpgErp.Application.Features.CommissionLedgers;
 using LpgErp.Application.Features.DriverSettlements.DTOs;
 using LpgErp.Domain.Entities;
 using LpgErp.Domain.Interfaces;
@@ -22,12 +23,14 @@ public class DriverSettlementService : IDriverSettlementService
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly ICommissionLedgerService _commissionLedgerService;
 
-    public DriverSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper)
+    public DriverSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, ICommissionLedgerService commissionLedgerService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _commissionLedgerService = commissionLedgerService;
     }
 
     public async Task<Result<PagedResult<DriverSettlementDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default)
@@ -49,6 +52,8 @@ public class DriverSettlementService : IDriverSettlementService
         await _context.DriverSettlements.AddAsync(entity, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
+        await AutoCalculateCommissionAsync(entity.DriverId, entity.SettlementDate, ct);
+
         var result = await _context.DriverSettlements.Include(s => s.Driver).FirstOrDefaultAsync(s => s.Id == entity.Id, ct);
         return Result<DriverSettlementDto>.Success(_mapper.Map<DriverSettlementDto>(result));
     }
@@ -68,6 +73,8 @@ public class DriverSettlementService : IDriverSettlementService
         _mapper.Map(request, entity);
         await _unitOfWork.SaveChangesAsync(ct);
 
+        await AutoCalculateCommissionAsync(entity.DriverId, entity.SettlementDate, ct);
+
         var result = await _context.DriverSettlements.Include(s => s.Driver).FirstOrDefaultAsync(s => s.Id == entity.Id, ct);
         return Result<DriverSettlementDto>.Success(_mapper.Map<DriverSettlementDto>(result));
     }
@@ -80,5 +87,16 @@ public class DriverSettlementService : IDriverSettlementService
         _context.DriverSettlements.Remove(entity);
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();
+    }
+
+    private async Task AutoCalculateCommissionAsync(Guid driverId, DateTime date, CancellationToken ct)
+    {
+        try
+        {
+            await _commissionLedgerService.CalculateAndRecordForPeriodAsync(CommissionEntityType.Driver, driverId, date, ct);
+        }
+        catch
+        {
+        }
     }
 }

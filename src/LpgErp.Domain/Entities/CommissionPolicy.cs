@@ -4,7 +4,8 @@ public enum CommissionEntityType
 {
     Salesman = 0,
     Customer = 1,
-    Supplier = 2
+    Supplier = 2,
+    Driver = 3
 }
 
 public enum CommissionCalculationType
