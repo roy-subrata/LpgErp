@@ -690,6 +690,7 @@ export interface PriceHistory {
   priceType: number;
   previousPrice: number;
   newPrice: number;
+  boardPrice: number | null;
   changeAmount: number;
   changePercent: number;
   reason: number;

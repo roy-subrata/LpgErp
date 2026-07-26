@@ -12,6 +12,7 @@ public class PriceHistoryDto : IMapFrom<PriceHistory>
     public PriceType PriceType { get; set; }
     public decimal PreviousPrice { get; set; }
     public decimal NewPrice { get; set; }
+    public decimal? BoardPrice { get; set; }
     public decimal ChangeAmount { get; set; }
     public decimal ChangePercent { get; set; }
     public PriceChangeReason Reason { get; set; }
@@ -32,6 +33,7 @@ public class CreatePriceHistoryRequest : IMapTo<PriceHistory>
     public Guid ProductId { get; set; }
     public PriceType PriceType { get; set; }
     public decimal NewPrice { get; set; }
+    public decimal? BoardPrice { get; set; }
     public PriceChangeReason Reason { get; set; }
     public DateTime EffectiveDate { get; set; }
     public string? Reference { get; set; }

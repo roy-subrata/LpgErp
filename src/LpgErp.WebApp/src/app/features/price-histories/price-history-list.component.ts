@@ -30,6 +30,7 @@ import { DialogComponent } from '../../shared/dialog.component';
           <th>Date</th>
           <th>Product</th>
           <th>Type</th>
+          <th>Board Price</th>
           <th>Previous</th>
           <th>New</th>
           <th>Change</th>
@@ -43,6 +44,7 @@ import { DialogComponent } from '../../shared/dialog.component';
             <td>{{ item.effectiveDate | date:'dd MMM yyyy' }}</td>
             <td>{{ item.productName }}</td>
             <td><span class="badge" [class]="item.priceType === 0 ? 'badge-blue' : 'badge-green'">{{ item.priceType === 0 ? 'Purchase' : 'Sale' }}</span></td>
+            <td>{{ item.boardPrice ? (item.boardPrice | number:'1.2-2') : '-' }}</td>
             <td>{{ item.previousPrice | number:'1.2-2' }}</td>
             <td>{{ item.newPrice | number:'1.2-2' }}</td>
             <td [class]="item.changeAmount > 0 ? 'text-red' : 'text-green'">
@@ -53,7 +55,7 @@ import { DialogComponent } from '../../shared/dialog.component';
             <td>{{ item.reference || '-' }}</td>
           </tr>
         } @empty {
-          <tr><td colspan="8" class="text-center">No price history found</td></tr>
+          <tr><td colspan="9" class="text-center">No price history found</td></tr>
         }
       </tbody>
     </table>
@@ -83,8 +85,12 @@ import { DialogComponent } from '../../shared/dialog.component';
           </select>
         </div>
         <div class="form-group">
-          <label>New Price</label>
+          <label>New Price (Your Selling Price)</label>
           <input type="number" [(ngModel)]="form.newPrice" name="newPrice" step="0.01" required />
+        </div>
+        <div class="form-group">
+          <label>Board Price (BERC Maximum) — optional</label>
+          <input type="number" [(ngModel)]="form.boardPrice" name="boardPrice" step="0.01" placeholder="Regulatory board set price" />
         </div>
         <div class="form-group">
           <label>Reason</label>
@@ -156,6 +162,7 @@ export class PriceHistoryListComponent implements OnInit {
     productId: '',
     priceType: 0,
     newPrice: 0,
+    boardPrice: null as number | null,
     reason: 0,
     effectiveDate: new Date().toISOString().split('T')[0],
     reference: '',
@@ -196,6 +203,7 @@ export class PriceHistoryListComponent implements OnInit {
       productId: '',
       priceType: 0,
       newPrice: 0,
+      boardPrice: null,
       reason: 0,
       effectiveDate: new Date().toISOString().split('T')[0],
       reference: '',

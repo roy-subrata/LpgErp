@@ -22,6 +22,7 @@ public class PriceHistory : BaseEntity
     public PriceType PriceType { get; set; }
     public decimal PreviousPrice { get; set; }
     public decimal NewPrice { get; set; }
+    public decimal? BoardPrice { get; set; }
     public decimal ChangeAmount => NewPrice - PreviousPrice;
     public decimal ChangePercent => PreviousPrice != 0 ? Math.Round((NewPrice - PreviousPrice) / PreviousPrice * 100, 2) : 0;
     public PriceChangeReason Reason { get; set; }
