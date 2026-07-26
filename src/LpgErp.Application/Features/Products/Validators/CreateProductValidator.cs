@@ -17,9 +17,6 @@ public class CreateProductValidator : AbstractValidator<CreateProductRequest>
         RuleFor(x => x.SalePrice)
             .GreaterThanOrEqualTo(0).WithMessage("Sale price cannot be negative.");
 
-        RuleFor(x => x.CurrentStock)
-            .GreaterThanOrEqualTo(0).WithMessage("Current stock cannot be negative.");
-
         RuleFor(x => x.MinimumStock)
             .GreaterThanOrEqualTo(0).WithMessage("Minimum stock cannot be negative.");
     }

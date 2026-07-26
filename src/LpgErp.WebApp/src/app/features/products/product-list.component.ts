@@ -28,7 +28,6 @@ export class ProductListComponent {
       { key: 'type', label: 'Type', type: 'select', options: [{ value: 0, label: 'Empty Cylinder' }, { value: 1, label: 'Gas Refill' }, { value: 2, label: 'New Package' }, { value: 3, label: 'Accessory' }] },
       { key: 'purchasePrice', label: 'Purchase Price', type: 'number' },
       { key: 'salePrice', label: 'Sale Price', type: 'number' },
-      { key: 'currentStock', label: 'Current Stock', type: 'number' },
       { key: 'minimumStock', label: 'Minimum Stock', type: 'number' },
       { key: 'isActive', label: 'Active', type: 'toggle' },
     ],

@@ -37,7 +37,6 @@ public class CreateProductRequest : IMapTo<Product>
     public Guid? CylinderSizeId { get; set; }
     public decimal PurchasePrice { get; set; }
     public decimal SalePrice { get; set; }
-    public int CurrentStock { get; set; }
     public int MinimumStock { get; set; }
     public bool IsActive { get; set; } = true;
 }
@@ -51,7 +50,6 @@ public class UpdateProductRequest : IMapTo<Product>
     public Guid? CylinderSizeId { get; set; }
     public decimal PurchasePrice { get; set; }
     public decimal SalePrice { get; set; }
-    public int CurrentStock { get; set; }
     public int MinimumStock { get; set; }
     public bool IsActive { get; set; } = true;
 }

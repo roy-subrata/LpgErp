@@ -18,5 +18,6 @@ public class DriverSettlementConfiguration : IEntityTypeConfiguration<DriverSett
         builder.Property(d => d.UnloadingCost).HasPrecision(18, 2);
         builder.Property(d => d.TripIncome).HasPrecision(18, 2);
         builder.Property(d => d.CompanyPickupIncentive).HasPrecision(18, 2);
+        builder.Property(d => d.Distance).HasPrecision(18, 2);
     }
 }

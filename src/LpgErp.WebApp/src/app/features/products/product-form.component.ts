@@ -56,10 +56,6 @@ import { Product, Brand, CylinderSize } from '../../core/models';
           <input id="salePrice" type="number" [(ngModel)]="salePrice" name="salePrice" />
         </div>
         <div class="form-group">
-          <label for="currentStock">Current Stock</label>
-          <input id="currentStock" type="number" [(ngModel)]="currentStock" name="currentStock" />
-        </div>
-        <div class="form-group">
           <label for="minimumStock">Minimum Stock</label>
           <input id="minimumStock" type="number" [(ngModel)]="minimumStock" name="minimumStock" />
         </div>
@@ -102,7 +98,6 @@ export class ProductFormComponent implements OnChanges {
   cylinderSizeId = '';
   purchasePrice = 0;
   salePrice = 0;
-  currentStock = 0;
   minimumStock = 0;
   isActive = true;
   saving = signal(false);
@@ -121,7 +116,6 @@ export class ProductFormComponent implements OnChanges {
           this.cylinderSizeId = product.cylinderSizeId;
           this.purchasePrice = product.purchasePrice;
           this.salePrice = product.salePrice;
-          this.currentStock = product.currentStock;
           this.minimumStock = product.minimumStock;
           this.isActive = product.isActive;
         });
@@ -141,7 +135,6 @@ export class ProductFormComponent implements OnChanges {
       cylinderSizeId: this.cylinderSizeId,
       purchasePrice: this.purchasePrice,
       salePrice: this.salePrice,
-      currentStock: this.currentStock,
       minimumStock: this.minimumStock,
       isActive: this.isActive,
     };
@@ -178,7 +171,6 @@ export class ProductFormComponent implements OnChanges {
     this.cylinderSizeId = '';
     this.purchasePrice = 0;
     this.salePrice = 0;
-    this.currentStock = 0;
     this.minimumStock = 0;
     this.isActive = true;
   }

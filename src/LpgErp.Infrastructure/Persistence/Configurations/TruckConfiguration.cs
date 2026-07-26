@@ -13,5 +13,7 @@ public class TruckConfiguration : IEntityTypeConfiguration<Truck>
         builder.Property(t => t.Name).HasMaxLength(200).IsRequired();
         builder.Property(t => t.RegistrationNumber).HasMaxLength(50);
         builder.Property(t => t.Phone).HasMaxLength(20);
+        builder.Property(t => t.FuelCapacity).HasPrecision(18, 2);
+        builder.Property(t => t.CurrentMileage).HasPrecision(18, 2);
     }
 }
