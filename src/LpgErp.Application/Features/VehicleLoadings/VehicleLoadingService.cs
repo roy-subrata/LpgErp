@@ -80,25 +80,28 @@ public class VehicleLoadingService : IVehicleLoadingService
             }).ToList()
         };
 
-        // Validate warehouse availability per product (aggregated across lines) before mutating anything.
-        var required = request.Items.GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.Sum(i => i.LoadedQuantity));
-        var stockByProduct = new Dictionary<Guid, StockLevel>();
-        foreach (var (productId, qty) in required)
-        {
-            var stock = await _context.StockLevels
-                .FirstOrDefaultAsync(s => s.WarehouseId == request.WarehouseId && s.ProductId == productId, ct);
-            if (stock is null || stock.Quantity < qty)
-                return Result<VehicleLoadingDto>.Failure($"Insufficient warehouse stock for product {productId}.");
-            stockByProduct[productId] = stock;
-        }
-
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
+            // Validate warehouse availability inside the transaction to prevent TOCTOU races.
+            var required = request.Items.GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.Sum(i => i.LoadedQuantity));
+            foreach (var (productId, qty) in required)
+            {
+                var stock = await _context.StockLevels
+                    .FirstOrDefaultAsync(s => s.WarehouseId == request.WarehouseId && s.ProductId == productId, ct);
+                if (stock is null || stock.Quantity < qty)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(ct);
+                    return Result<VehicleLoadingDto>.Failure($"Insufficient warehouse stock for product {productId}.");
+                }
+            }
+
             // Goods leave the warehouse onto the vehicle; total company stock (Product.CurrentStock) is unchanged.
             foreach (var (productId, qty) in required)
             {
-                stockByProduct[productId].Quantity -= qty;
+                var stock = await _context.StockLevels
+                    .FirstAsync(s => s.WarehouseId == request.WarehouseId && s.ProductId == productId, ct);
+                stock.Quantity -= qty;
                 await _context.StockMovements.AddAsync(new StockMovement
                 {
                     ProductId = productId,
@@ -152,26 +155,27 @@ public class VehicleLoadingService : IVehicleLoadingService
             foreach (var (productId, qty) in newQty) adjustments.Add((request.WarehouseId, productId, qty));
         }
 
-        // Validate every deduction before mutating.
-        var stocks = new Dictionary<(Guid WarehouseId, Guid ProductId), StockLevel>();
-        foreach (var (warehouseId, productId, delta) in adjustments)
-        {
-            var stock = await _context.StockLevels.FirstOrDefaultAsync(s => s.WarehouseId == warehouseId && s.ProductId == productId, ct);
-            if (delta > 0 && (stock is null || stock.Quantity < delta))
-                return Result<VehicleLoadingDto>.Failure($"Insufficient warehouse stock for product {productId}.");
-            if (stock is not null) stocks[(warehouseId, productId)] = stock;
-        }
-
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
+            // Validate every deduction inside the transaction to prevent TOCTOU races.
             foreach (var (warehouseId, productId, delta) in adjustments)
             {
-                if (!stocks.TryGetValue((warehouseId, productId), out var stock))
+                var stock = await _context.StockLevels.FirstOrDefaultAsync(s => s.WarehouseId == warehouseId && s.ProductId == productId, ct);
+                if (delta > 0 && (stock is null || stock.Quantity < delta))
+                {
+                    await _unitOfWork.RollbackTransactionAsync(ct);
+                    return Result<VehicleLoadingDto>.Failure($"Insufficient warehouse stock for product {productId}.");
+                }
+            }
+
+            foreach (var (warehouseId, productId, delta) in adjustments)
+            {
+                var stock = await _context.StockLevels.FirstOrDefaultAsync(s => s.WarehouseId == warehouseId && s.ProductId == productId, ct);
+                if (stock is null)
                 {
                     stock = new StockLevel { WarehouseId = warehouseId, ProductId = productId, Quantity = 0 };
                     await _context.StockLevels.AddAsync(stock, ct);
-                    stocks[(warehouseId, productId)] = stock;
                 }
                 stock.Quantity -= delta;
 

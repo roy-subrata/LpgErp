@@ -61,11 +61,6 @@ public class CylinderExchangeService : ICylinderExchangeService
 
     public async Task<Result<CylinderExchangeDto>> CreateAsync(CreateCylinderExchangeRequest request, CancellationToken ct = default)
     {
-        var resolved = await ResolveAsync(request.WarehouseId,
-            request.IncomingBrandId, request.IncomingCylinderSizeId, request.IncomingQuantity,
-            request.OutgoingBrandId, request.OutgoingCylinderSizeId, request.OutgoingQuantity, ct);
-        if (!resolved.IsSuccess) return Result<CylinderExchangeDto>.Failure(resolved.Error!);
-
         var entity = _mapper.Map<CylinderExchange>(request);
         entity.Id = Guid.NewGuid();
         entity.ExchangeDate = DateTime.UtcNow;
@@ -73,6 +68,16 @@ public class CylinderExchangeService : ICylinderExchangeService
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
+            // Validate availability inside the transaction to prevent TOCTOU races.
+            var resolved = await ResolveAsync(request.WarehouseId,
+                request.IncomingBrandId, request.IncomingCylinderSizeId, request.IncomingQuantity,
+                request.OutgoingBrandId, request.OutgoingCylinderSizeId, request.OutgoingQuantity, ct);
+            if (!resolved.IsSuccess)
+            {
+                await _unitOfWork.RollbackTransactionAsync(ct);
+                return Result<CylinderExchangeDto>.Failure(resolved.Error!);
+            }
+
             await ApplyStockAsync(entity, resolved.Data!, +1, ct);
             await _context.CylinderExchanges.AddAsync(entity, ct);
             await _unitOfWork.SaveChangesAsync(ct);

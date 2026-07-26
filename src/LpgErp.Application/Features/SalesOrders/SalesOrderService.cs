@@ -255,22 +255,26 @@ public class SalesOrderService : ISalesOrderService
             return await GetByIdAsync(id, cancellationToken);
         }
 
-        // Direct warehouse sale: validate availability first (aggregated per product), then deduct warehouse stock.
+        // Direct warehouse sale: validate availability inside the transaction to prevent TOCTOU races.
         var requiredByProduct = entity.Items.GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
-        var stockByProduct = new Dictionary<Guid, StockLevel>();
-        foreach (var (productId, qty) in requiredByProduct)
-        {
-            var stockLevel = await _context.StockLevels
-                .FirstOrDefaultAsync(s => s.WarehouseId == entity.WarehouseId && s.ProductId == productId, cancellationToken);
-
-            if (stockLevel is null || stockLevel.Quantity < qty)
-                return Result<SalesOrderDto>.Failure($"Insufficient stock for product {productId} in warehouse.");
-            stockByProduct[productId] = stockLevel;
-        }
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var stockByProduct = new Dictionary<Guid, StockLevel>();
+            foreach (var (productId, qty) in requiredByProduct)
+            {
+                var stockLevel = await _context.StockLevels
+                    .FirstOrDefaultAsync(s => s.WarehouseId == entity.WarehouseId && s.ProductId == productId, cancellationToken);
+
+                if (stockLevel is null || stockLevel.Quantity < qty)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result<SalesOrderDto>.Failure($"Insufficient stock for product {productId} in warehouse.");
+                }
+                stockByProduct[productId] = stockLevel;
+            }
+
             foreach (var (productId, qty) in requiredByProduct)
             {
                 stockByProduct[productId].Quantity -= qty;

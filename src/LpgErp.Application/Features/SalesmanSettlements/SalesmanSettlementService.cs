@@ -6,6 +6,7 @@ using LpgErp.Application.Features.SalesmanSettlements.DTOs;
 using LpgErp.Domain.Entities;
 using LpgErp.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace LpgErp.Application.Features.SalesmanSettlements;
 
@@ -24,13 +25,15 @@ public class SalesmanSettlementService : ISalesmanSettlementService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly ICommissionLedgerService _commissionLedgerService;
+    private readonly ILogger<SalesmanSettlementService> _logger;
 
-    public SalesmanSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, ICommissionLedgerService commissionLedgerService)
+    public SalesmanSettlementService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, ICommissionLedgerService commissionLedgerService, ILogger<SalesmanSettlementService> logger)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _commissionLedgerService = commissionLedgerService;
+        _logger = logger;
     }
 
     public async Task<Result<PagedResult<SalesmanSettlementDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default)
@@ -95,8 +98,9 @@ public class SalesmanSettlementService : ISalesmanSettlementService
         {
             await _commissionLedgerService.CalculateAndRecordForPeriodAsync(CommissionEntityType.Salesman, salesmanId, date, ct);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to auto-calculate commission for salesman {SalesmanId} on {Date}", salesmanId, date);
         }
     }
 }

@@ -93,6 +93,9 @@ public class CommissionPolicyService : ICommissionPolicyService
         var entity = await _context.CommissionPolicies.FindAsync([id], ct);
         if (entity is null || entity.IsDeleted) return Result<CommissionPolicyDto>.Failure("Commission policy not found.");
 
+        if (request.TargetQuantity <= 0) return Result<CommissionPolicyDto>.Failure("Target quantity must be greater than zero.");
+        if (request.CommissionValue <= 0) return Result<CommissionPolicyDto>.Failure("Commission value must be greater than zero.");
+
         _mapper.Map(request, entity);
         await _unitOfWork.SaveChangesAsync(ct);
 

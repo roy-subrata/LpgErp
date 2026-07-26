@@ -65,18 +65,6 @@ public class CustomerCylinderLedgerService : ICustomerCylinderLedgerService
         if (request.Quantity <= 0)
             return Result<CustomerCylinderBalanceDto>.Failure("Quantity must be positive.");
 
-        var balance = await _context.CustomerCylinderBalances
-            .Include(c => c.Customer)
-            .Include(c => c.Brand)
-            .Include(c => c.CylinderSize)
-            .FirstOrDefaultAsync(c => c.CustomerId == request.CustomerId
-                && c.BrandId == request.BrandId
-                && c.CylinderSizeId == request.CylinderSizeId
-                && !c.IsDeleted, cancellationToken);
-
-        if (request.IsReturn && request.Quantity > (balance is null ? 0 : balance.Received - balance.Returned))
-            return Result<CustomerCylinderBalanceDto>.Failure("Cannot return more cylinders than are outstanding.");
-
         // Optional monetary settlement: the returned cylinders reduce a credit sales order's due.
         Payment? settlement = null;
         if (request.SettlementAmount > 0)
@@ -112,9 +100,27 @@ public class CustomerCylinderLedgerService : ICustomerCylinderLedgerService
             };
         }
 
+        CustomerCylinderBalance? balance = null;
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // Load balance inside transaction to prevent TOCTOU race on outstanding check.
+            balance = await _context.CustomerCylinderBalances
+                .Include(c => c.Customer)
+                .Include(c => c.Brand)
+                .Include(c => c.CylinderSize)
+                .FirstOrDefaultAsync(c => c.CustomerId == request.CustomerId
+                    && c.BrandId == request.BrandId
+                    && c.CylinderSizeId == request.CylinderSizeId
+                    && !c.IsDeleted, cancellationToken);
+
+            if (request.IsReturn && request.Quantity > (balance is null ? 0 : balance.Received - balance.Returned))
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<CustomerCylinderBalanceDto>.Failure("Cannot return more cylinders than are outstanding.");
+            }
+
             if (balance is null)
             {
                 balance = new CustomerCylinderBalance

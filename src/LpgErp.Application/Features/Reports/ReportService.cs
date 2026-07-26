@@ -617,38 +617,54 @@ public class ReportService : IReportService
 
     public async Task<Result<IReadOnlyList<CashFlowEntryDto>>> GetCashFlowAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
-        var payments = await _context.Payments
+        var paymentFlow = await _context.Payments
             .Where(p => !p.IsDeleted && p.PaymentDate >= from && p.PaymentDate <= to)
-            .ToListAsync(ct);
-
-        // Deposits and exchange charges are real money crossing the counter but carry no Payment row,
-        // so cash flow used to miss them entirely. A deposit taken is cash in; one returned or refunded
-        // is cash out; an exchange charge is cash in.
-        var deposits = await _context.CylinderDeposits
-            .Where(d => !d.IsDeleted && d.DepositDate >= from && d.DepositDate <= to)
-            .ToListAsync(ct);
-
-        var exchanges = await _context.CylinderExchanges
-            .Where(e => !e.IsDeleted && e.ExchangeCharge != 0 && e.ExchangeDate >= from && e.ExchangeDate <= to)
-            .ToListAsync(ct);
-
-        var movements = payments
-            .Select(p => (Date: p.PaymentDate.Date, In: p.Direction == PaymentDirection.Inbound ? p.Amount : 0m,
-                                                    Out: p.Direction == PaymentDirection.Outbound ? p.Amount : 0m))
-            .Concat(deposits.Select(d => (Date: d.DepositDate.Date,
-                In: d.Type == CylinderDepositType.Paid ? d.Amount : 0m,
-                Out: d.Type == CylinderDepositType.Paid ? 0m : d.Amount)))
-            .Concat(exchanges.Select(e => (Date: e.ExchangeDate.Date, In: e.ExchangeCharge, Out: 0m)));
-
-        var report = movements
-            .GroupBy(m => m.Date)
-            .Select(g => new CashFlowEntryDto
+            .GroupBy(p => p.PaymentDate.Date)
+            .Select(g => new
             {
                 Date = g.Key,
-                CashIn = g.Sum(m => m.In),
-                CashOut = g.Sum(m => m.Out),
-                NetCashFlow = g.Sum(m => m.In) - g.Sum(m => m.Out)
+                CashIn = g.Where(p => p.Direction == PaymentDirection.Inbound).Sum(p => p.Amount),
+                CashOut = g.Where(p => p.Direction == PaymentDirection.Outbound).Sum(p => p.Amount)
             })
+            .ToListAsync(ct);
+
+        var depositFlow = await _context.CylinderDeposits
+            .Where(d => !d.IsDeleted && d.DepositDate >= from && d.DepositDate <= to)
+            .GroupBy(d => d.DepositDate.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                CashIn = g.Where(d => d.Type == CylinderDepositType.Paid).Sum(d => d.Amount),
+                CashOut = g.Where(d => d.Type != CylinderDepositType.Paid).Sum(d => d.Amount)
+            })
+            .ToListAsync(ct);
+
+        var exchangeFlow = await _context.CylinderExchanges
+            .Where(e => !e.IsDeleted && e.ExchangeCharge != 0 && e.ExchangeDate >= from && e.ExchangeDate <= to)
+            .GroupBy(e => e.ExchangeDate.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                CashIn = g.Sum(e => e.ExchangeCharge),
+                CashOut = 0m
+            })
+            .ToListAsync(ct);
+
+        var allDates = paymentFlow.Select(x => x.Date)
+            .Union(depositFlow.Select(x => x.Date))
+            .Union(exchangeFlow.Select(x => x.Date));
+
+        var report = allDates
+            .Select(date => new CashFlowEntryDto
+            {
+                Date = date,
+                CashIn = paymentFlow.Where(x => x.Date == date).Sum(x => x.CashIn)
+                         + depositFlow.Where(x => x.Date == date).Sum(x => x.CashIn)
+                         + exchangeFlow.Where(x => x.Date == date).Sum(x => x.CashIn),
+                CashOut = paymentFlow.Where(x => x.Date == date).Sum(x => x.CashOut)
+                          + depositFlow.Where(x => x.Date == date).Sum(x => x.CashOut),
+            })
+            .Select(e => { e.NetCashFlow = e.CashIn - e.CashOut; return e; })
             .OrderBy(e => e.Date)
             .ToList();
 

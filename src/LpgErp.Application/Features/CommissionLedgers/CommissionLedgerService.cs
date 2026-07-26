@@ -133,37 +133,47 @@ public class CommissionLedgerService : ICommissionLedgerService
         var periodKey = CommissionPolicyService.GetPeriodKey(
             policies.FirstOrDefault()?.PeriodType ?? CommissionPeriodType.Monthly, date);
 
-        foreach (var policy in policies)
+        await _unitOfWork.BeginTransactionAsync(ct);
+        try
         {
-            var existing = await _context.CommissionLedgers
-                .AnyAsync(l => !l.IsDeleted && l.PolicyId == policy.Id && l.EntityType == entityType && l.EntityId == entityId && l.PeriodKey == periodKey, ct);
-
-            if (existing) continue;
-
-            var periodStart = GetPeriodStart(policy.PeriodType, date);
-            var periodEnd = GetPeriodEnd(policy.PeriodType, date);
-            var (actualQuantity, actualAmount) = await GetActualsForPeriodAsync(policy, periodStart, periodEnd, ct);
-            var commissionEarned = CommissionPolicyService.CalculateCommission(policy, actualQuantity, actualAmount);
-
-            if (commissionEarned > 0)
+            foreach (var policy in policies)
             {
-                await _context.CommissionLedgers.AddAsync(new CommissionLedger
-                {
-                    PolicyId = policy.Id,
-                    EntityType = entityType,
-                    EntityId = entityId,
-                    PeriodKey = periodKey,
-                    ActualQuantity = actualQuantity,
-                    ActualAmount = actualAmount,
-                    CommissionEarned = commissionEarned,
-                    Status = CommissionLedgerStatus.Earned,
-                    PeriodStart = periodStart,
-                    PeriodEnd = periodEnd
-                }, ct);
-            }
-        }
+                var existing = await _context.CommissionLedgers
+                    .AnyAsync(l => !l.IsDeleted && l.PolicyId == policy.Id && l.EntityType == entityType && l.EntityId == entityId && l.PeriodKey == periodKey, ct);
 
-        await _unitOfWork.SaveChangesAsync(ct);
+                if (existing) continue;
+
+                var periodStart = GetPeriodStart(policy.PeriodType, date);
+                var periodEnd = GetPeriodEnd(policy.PeriodType, date);
+                var (actualQuantity, actualAmount) = await GetActualsForPeriodAsync(policy, periodStart, periodEnd, ct);
+                var commissionEarned = CommissionPolicyService.CalculateCommission(policy, actualQuantity, actualAmount);
+
+                if (commissionEarned > 0)
+                {
+                    await _context.CommissionLedgers.AddAsync(new CommissionLedger
+                    {
+                        PolicyId = policy.Id,
+                        EntityType = entityType,
+                        EntityId = entityId,
+                        PeriodKey = periodKey,
+                        ActualQuantity = actualQuantity,
+                        ActualAmount = actualAmount,
+                        CommissionEarned = commissionEarned,
+                        Status = CommissionLedgerStatus.Earned,
+                        PeriodStart = periodStart,
+                        PeriodEnd = periodEnd
+                    }, ct);
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            await _unitOfWork.CommitTransactionAsync(ct);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(ct);
+            throw;
+        }
     }
 
     private async Task<(int quantity, decimal amount)> GetActualsForPeriodAsync(CommissionPolicy policy, DateTime periodStart, DateTime periodEnd, CancellationToken ct)
@@ -190,8 +200,12 @@ public class CommissionLedgerService : ICommissionLedgerService
 
     private async Task<(int quantity, decimal amount)> GetSalesmanActualsAsync(CommissionPolicy policy, DateTime start, DateTime end, CancellationToken ct)
     {
+        // SalesOrders are linked to salesmen via VehicleLoading.SalesmanId.
+        // Only count sales orders where the assigned salesman matches the policy entity.
         var query = _context.SalesOrders
             .Where(so => !so.IsDeleted && so.Status == SalesOrderStatus.Delivered
+                && so.VehicleLoadingId != null
+                && so.VehicleLoading!.SalesmanId == policy.EntityId
                 && so.OrderDate >= start && so.OrderDate <= end);
 
         if (policy.ProductId.HasValue)

@@ -78,16 +78,18 @@ public class PriceHistoryService : IPriceHistoryService
         return Result<PriceHistoryDto>.Success(_mapper.Map<PriceHistoryDto>(result));
     }
 
-    public static void RecordPriceChange(IApplicationDbContext context, Product product, PriceType priceType, PriceChangeReason reason, string? reference = null)
+    public static void RecordPriceChange(IApplicationDbContext context, Product product, PriceType priceType, decimal newPrice, PriceChangeReason reason, string? reference = null)
     {
         var previousPrice = priceType == PriceType.Purchase ? product.PurchasePrice : product.SalePrice;
+
+        if (previousPrice == newPrice) return;
 
         context.PriceHistories.Add(new PriceHistory
         {
             ProductId = product.Id,
             PriceType = priceType,
             PreviousPrice = previousPrice,
-            NewPrice = priceType == PriceType.Purchase ? product.PurchasePrice : product.SalePrice,
+            NewPrice = newPrice,
             Reason = reason,
             EffectiveDate = DateTime.UtcNow,
             Reference = reference
