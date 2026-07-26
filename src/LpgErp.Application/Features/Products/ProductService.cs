@@ -92,7 +92,37 @@ public class ProductService : IProductService
         if (entity is null)
             return Result<ProductDto>.Failure("Product not found.");
 
+        var oldPurchasePrice = entity.PurchasePrice;
+        var oldSalePrice = entity.SalePrice;
+
         _mapper.Map(updateDto, entity);
+
+        if (entity.PurchasePrice != oldPurchasePrice)
+        {
+            _context.PriceHistories.Add(new Domain.Entities.PriceHistory
+            {
+                ProductId = entity.Id,
+                PriceType = Domain.Entities.PriceType.Purchase,
+                PreviousPrice = oldPurchasePrice,
+                NewPrice = entity.PurchasePrice,
+                Reason = Domain.Entities.PriceChangeReason.ManualCorrection,
+                EffectiveDate = DateTime.UtcNow
+            });
+        }
+
+        if (entity.SalePrice != oldSalePrice)
+        {
+            _context.PriceHistories.Add(new Domain.Entities.PriceHistory
+            {
+                ProductId = entity.Id,
+                PriceType = Domain.Entities.PriceType.Sale,
+                PreviousPrice = oldSalePrice,
+                NewPrice = entity.SalePrice,
+                Reason = Domain.Entities.PriceChangeReason.ManualCorrection,
+                EffectiveDate = DateTime.UtcNow
+            });
+        }
+
         _repository.Update(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<ProductDto>.Success(_mapper.Map<ProductDto>(entity));

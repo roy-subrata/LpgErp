@@ -29,6 +29,7 @@ using LpgErp.Application.Features.CustomerGasLedger;
 using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.TransportCompanies;
 using LpgErp.Application.Features.VehicleClosings;
+using LpgErp.Application.Features.PriceHistories;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LpgErp.Application;
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerCreditService, CustomerCreditService>();
         services.AddScoped<ITransportCompanyService, TransportCompanyService>();
         services.AddScoped<IVehicleClosingService, VehicleClosingService>();
+        services.AddScoped<IPriceHistoryService, PriceHistoryService>();
 
         return services;
     }

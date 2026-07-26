@@ -394,6 +394,7 @@ export class AppComponent {
         { label: 'Cylinder Sizes', icon: '◎', route: 'cylinder-sizes' },
         { label: 'Suppliers', icon: '🏢', route: 'suppliers' },
         { label: 'Transport Companies', icon: '🚚', route: 'transport-companies' },
+        { label: 'Price History', icon: '📈', route: 'price-histories' },
       ],
     },
   ];

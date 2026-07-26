@@ -47,6 +47,7 @@ public class LpgErpDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<CylinderExchange> CylinderExchanges => Set<CylinderExchange>();
     public DbSet<CustomerNotification> CustomerNotifications => Set<CustomerNotification>();
     public DbSet<TransportCompany> TransportCompanies => Set<TransportCompany>();
+    public DbSet<PriceHistory> PriceHistories => Set<PriceHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

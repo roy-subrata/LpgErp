@@ -167,5 +167,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/customer-notifications/customer-notification-list.component').then(m => m.CustomerNotificationListComponent),
   },
+  {
+    path: 'price-histories',
+    loadComponent: () =>
+      import('./features/price-histories/price-history-list.component').then(m => m.PriceHistoryListComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];

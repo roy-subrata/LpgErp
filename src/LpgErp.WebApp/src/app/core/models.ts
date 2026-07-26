@@ -682,3 +682,19 @@ export interface VehicleClosingItem {
   returnedQuantity: number;
   damagedQuantity: number;
 }
+
+export interface PriceHistory {
+  id: string;
+  productId: string;
+  productName: string;
+  priceType: number;
+  previousPrice: number;
+  newPrice: number;
+  changeAmount: number;
+  changePercent: number;
+  reason: number;
+  effectiveDate: string;
+  reference: string;
+  notes: string;
+  createdAt: string;
+}

@@ -35,6 +35,7 @@ public interface IApplicationDbContext
     DbSet<CylinderExchange> CylinderExchanges { get; }
     DbSet<CustomerNotification> CustomerNotifications { get; }
     DbSet<TransportCompany> TransportCompanies { get; }
+    DbSet<PriceHistory> PriceHistories { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
