@@ -23,12 +23,14 @@ public class VehicleLoadingService : IVehicleLoadingService
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly INotificationService _notificationService;
 
-    public VehicleLoadingService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper)
+    public VehicleLoadingService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<PagedResult<VehicleLoadingDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct = default)
@@ -320,7 +322,18 @@ public class VehicleLoadingService : IVehicleLoadingService
                 if (gone > 0)
                 {
                     var product = await _context.Products.FindAsync([item.ProductId], ct);
-                    if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - gone);
+                    if (product is not null)
+                    {
+                        product.CurrentStock = Math.Max(0, product.CurrentStock - gone);
+                        if (product.CurrentStock <= product.MinimumStock)
+                        {
+                            try
+                            {
+                                await _notificationService.NotifyStockLowAsync(product.Name, product.CurrentStock, product.MinimumStock);
+                            }
+                            catch { /* notification failure should not break the main operation */ }
+                        }
+                    }
                 }
                 if (unrecordedSold > 0)
                 {

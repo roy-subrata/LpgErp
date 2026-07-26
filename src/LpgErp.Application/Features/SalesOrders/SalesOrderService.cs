@@ -24,12 +24,14 @@ public class SalesOrderService : ISalesOrderService
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly INotificationService _notificationService;
 
-    public SalesOrderService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper)
+    public SalesOrderService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<PagedResult<SalesOrderDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
@@ -107,6 +109,17 @@ public class SalesOrderService : ISalesOrderService
 
         await _context.SalesOrders.AddAsync(order, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var customer = await _context.Customers.FindAsync([request.CustomerId], cancellationToken);
+            await _notificationService.NotifySaleCreatedAsync(
+                order.OrderNumber,
+                customer?.Name ?? "Unknown",
+                order.TotalAmount - order.Discount,
+                request.CustomerId);
+        }
+        catch { /* notification failure should not break the main operation */ }
 
         return await GetByIdAsync(order.Id, cancellationToken);
     }
@@ -222,7 +235,18 @@ public class SalesOrderService : ISalesOrderService
                 foreach (var item in entity.Items)
                 {
                     var product = await _context.Products.FindAsync([item.ProductId], cancellationToken);
-                    if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - item.Quantity);
+                    if (product is not null)
+                    {
+                        product.CurrentStock = Math.Max(0, product.CurrentStock - item.Quantity);
+                        if (product.CurrentStock <= product.MinimumStock)
+                        {
+                            try
+                            {
+                                await _notificationService.NotifyStockLowAsync(product.Name, product.CurrentStock, product.MinimumStock);
+                            }
+                            catch { /* notification failure should not break the main operation */ }
+                        }
+                    }
 
                     // Live-update the loading's sold counter so the vehicle card shows real progress.
                     var loadingItem = loading.Items.FirstOrDefault(l => l.ProductId == item.ProductId);
@@ -280,7 +304,18 @@ public class SalesOrderService : ISalesOrderService
                 stockByProduct[productId].Quantity -= qty;
 
                 var product = await _context.Products.FindAsync([productId], cancellationToken);
-                if (product is not null) product.CurrentStock = Math.Max(0, product.CurrentStock - qty);
+                if (product is not null)
+                {
+                    product.CurrentStock = Math.Max(0, product.CurrentStock - qty);
+                    if (product.CurrentStock <= product.MinimumStock)
+                    {
+                        try
+                        {
+                            await _notificationService.NotifyStockLowAsync(product.Name, product.CurrentStock, product.MinimumStock);
+                        }
+                        catch { /* notification failure should not break the main operation */ }
+                    }
+                }
 
                 await _context.StockMovements.AddAsync(new StockMovement
                 {

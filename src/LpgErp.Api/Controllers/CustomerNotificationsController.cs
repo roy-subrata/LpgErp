@@ -1,11 +1,13 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.CustomerNotifications;
 using LpgErp.Application.Features.CustomerNotifications.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class CustomerNotificationsController : ControllerBase
 {

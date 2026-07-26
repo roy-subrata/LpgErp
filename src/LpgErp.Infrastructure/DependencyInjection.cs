@@ -1,5 +1,7 @@
 using LpgErp.Application.Common.Interfaces;
+using LpgErp.Application.Features.Auth;
 using LpgErp.Domain.Interfaces;
+using LpgErp.Infrastructure.Auth;
 using LpgErp.Infrastructure.Persistence;
 using LpgErp.Infrastructure.Repositories;
 using LpgErp.Infrastructure.Services;
@@ -21,6 +23,15 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<LpgErpDbContext>());
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddHttpContextAccessor();
+
+        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        services.AddSingleton<JwtSettings>(provider =>
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtSettings>>().Value);
+
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddSignalR();
+        services.AddHostedService<RefreshTokenCleanupService>();
 
         return services;
     }

@@ -1,11 +1,13 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.Reports;
 using LpgErp.Application.Features.Reports.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class ReportsController : ControllerBase
 {

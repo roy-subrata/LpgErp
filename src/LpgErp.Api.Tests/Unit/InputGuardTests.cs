@@ -11,6 +11,7 @@ using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
+using LpgErp.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -31,7 +32,7 @@ public class InputGuardTests
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options);
 
-    private SalesOrderService SalesSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c), _mapper);
+    private SalesOrderService SalesSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c), _mapper, new NullNotificationService());
     private StockTransferService TransferSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c));
 
     private Guid _customerId, _warehouseAId, _warehouseBId, _productId;

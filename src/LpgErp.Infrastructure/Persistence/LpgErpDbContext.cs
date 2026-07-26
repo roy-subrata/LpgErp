@@ -50,6 +50,13 @@ public class LpgErpDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<PriceHistory> PriceHistories => Set<PriceHistory>();
     public DbSet<CommissionPolicy> CommissionPolicies => Set<CommissionPolicy>();
     public DbSet<CommissionLedger> CommissionLedgers => Set<CommissionLedger>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<SystemNotification> SystemNotifications => Set<SystemNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

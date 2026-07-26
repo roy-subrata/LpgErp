@@ -38,6 +38,13 @@ public interface IApplicationDbContext
     DbSet<PriceHistory> PriceHistories { get; }
     DbSet<CommissionPolicy> CommissionPolicies { get; }
     DbSet<CommissionLedger> CommissionLedgers { get; }
+    DbSet<User> Users { get; }
+    DbSet<Role> Roles { get; }
+    DbSet<Permission> Permissions { get; }
+    DbSet<UserRole> UserRoles { get; }
+    DbSet<RolePermission> RolePermissions { get; }
+    DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<SystemNotification> SystemNotifications { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

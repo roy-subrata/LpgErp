@@ -1,10 +1,12 @@
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public abstract class BaseController<TCreateRequest, TUpdateRequest, TResponseDto> : ControllerBase
     where TCreateRequest : class

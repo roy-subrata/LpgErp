@@ -1,6 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { AuthService } from './core/auth.service';
+import { NotificationHubService } from './core/notification-hub.service';
+import { ToastComponent } from './features/toast/toast.component';
 
 interface NavItem {
   label: string;
@@ -16,7 +19,7 @@ interface NavGroup {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastComponent],
   template: `
     <div class="app-shell">
       <nav class="sidebar" [class.collapsed]="sidebarCollapsed()">
@@ -49,12 +52,13 @@ interface NavGroup {
         </div>
 
         <div class="sidebar-footer">
-          <div class="user-avatar">SR</div>
+          <div class="user-avatar">{{ userInitials() }}</div>
           @if (!sidebarCollapsed()) {
             <div class="user-info">
-              <div class="user-name">Subrata Roy</div>
-              <div class="user-role">Admin</div>
+              <div class="user-name">{{ userName() }}</div>
+              <div class="user-role">{{ userRole() }}</div>
             </div>
+            <button class="logout-btn" (click)="logout()" title="Sign out">⏻</button>
           }
         </div>
       </nav>
@@ -77,9 +81,11 @@ interface NavGroup {
               <input type="text" placeholder="Search..." class="search-input" />
               <span class="search-shortcut">⌘K</span>
             </div>
-            <button class="bell-btn">
+            <button class="bell-btn" (click)="clearNotifications()">
               🔔
-              <span class="bell-dot"></span>
+              @if (unreadCount() > 0) {
+                <span class="bell-badge">{{ unreadCount() }}</span>
+              }
             </button>
           </div>
         </header>
@@ -89,6 +95,7 @@ interface NavGroup {
         </main>
       </div>
     </div>
+    <app-toast />
   `,
   styles: [`
     :host { display: block; height: 100vh; overflow: hidden; }
@@ -257,6 +264,27 @@ interface NavGroup {
       color: var(--sidebar-label);
     }
 
+    .logout-btn {
+      margin-left: auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--sidebar-divider);
+      background: transparent;
+      color: var(--sidebar-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
     /* ===== MAIN ===== */
     .main-area {
       flex: 1;
@@ -387,14 +415,21 @@ interface NavGroup {
       background: var(--fill-subtle);
     }
 
-    .bell-dot {
+    .bell-badge {
       position: absolute;
-      top: 7px;
-      right: 8px;
-      width: 7px;
-      height: 7px;
-      background: var(--red-fg);
-      border-radius: 50%;
+      top: 4px;
+      right: 4px;
+      min-width: 16px;
+      height: 16px;
+      background: #ef4444;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
       border: 1.5px solid var(--surface);
     }
 
@@ -405,8 +440,54 @@ interface NavGroup {
     }
   `],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   sidebarCollapsed = signal(false);
+
+  constructor(
+    private authService: AuthService,
+    private notificationHub: NotificationHubService,
+    router: Router
+  ) {
+    router.events.pipe(
+      filter(e => e instanceof NavigationEnd),
+      map((e: any) => {
+        const seg = e.urlAfterRedirects || e.url;
+        const path = seg.split('/').filter(Boolean)[0] || 'dashboard';
+        return this.routeLabelMap[path] || 'Dashboard';
+      }),
+    ).subscribe(label => this.currentPageLabel.set(label));
+  }
+
+  userInitials = signal('');
+  userName = signal('');
+  userRole = signal('');
+  unreadCount = signal(0);
+
+  ngOnInit() {
+    if (this.authService.isAuthenticated()) {
+      this.notificationHub.start();
+      setInterval(() => {
+        this.unreadCount.set(this.notificationHub.unreadCount());
+      }, 1000);
+    }
+    const user = this.authService.currentUser();
+    if (user) {
+      const name = user.fullName || user.username;
+      this.userName.set(name);
+      this.userInitials.set(name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2));
+      this.userRole.set(user.roles[0] || 'User');
+    }
+  }
+
+  clearNotifications() {
+    this.notificationHub.clearUnread();
+    this.unreadCount.set(0);
+  }
+
+  logout() {
+    this.notificationHub.stop();
+    this.authService.logout();
+  }
 
   navGroups: NavGroup[] = [
     {
@@ -518,17 +599,6 @@ export class AppComponent {
     'commission-policies': 'Commission Policies',
     'commission-ledgers': 'Commission Ledger',
   };
-
-  constructor(router: Router) {
-    router.events.pipe(
-      filter(e => e instanceof NavigationEnd),
-      map((e: any) => {
-        const seg = e.urlAfterRedirects || e.url;
-        const path = seg.split('/').filter(Boolean)[0] || 'dashboard';
-        return this.routeLabelMap[path] || 'Dashboard';
-      }),
-    ).subscribe(label => this.currentPageLabel.set(label));
-  }
 
   toggleSidebar() {
     this.sidebarCollapsed.update(v => !v);

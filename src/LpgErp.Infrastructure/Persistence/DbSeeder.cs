@@ -12,6 +12,7 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(LpgErpDbContext db, CancellationToken ct = default)
     {
+        await SeedAuthAsync(db, ct);
         var brands = await SeedBrandsAsync(db, ct);
         var warehouses = await SeedWarehousesAsync(db, ct);
         var sizes = await SeedCylinderSizesAsync(db, brands, ct);
@@ -638,5 +639,119 @@ public static class DbSeeder
             db.CommissionLedgers.AddRange(ledgers);
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    private static async Task SeedAuthAsync(LpgErpDbContext db, CancellationToken ct)
+    {
+        if (await db.Roles.AnyAsync(ct))
+            return;
+
+        var permissions = AppPermissions.GetAll().Select(p => new Permission
+        {
+            Id = Guid.NewGuid(),
+            Name = p,
+            Group = p.Split('.')[0],
+            Description = p.Replace('.', ' ')
+        }).ToList();
+        db.Permissions.AddRange(permissions);
+        await db.SaveChangesAsync(ct);
+
+        var permDict = permissions.ToDictionary(p => p.Name);
+
+        var roles = new List<Role>
+        {
+            new() { Id = Guid.NewGuid(), Name = "Admin", Description = "Full system access" },
+            new() { Id = Guid.NewGuid(), Name = "Manager", Description = "Operations manager" },
+            new() { Id = Guid.NewGuid(), Name = "Salesman", Description = "Field salesman" },
+            new() { Id = Guid.NewGuid(), Name = "Driver", Description = "Delivery driver" },
+            new() { Id = Guid.NewGuid(), Name = "Warehouse", Description = "Warehouse staff" },
+            new() { Id = Guid.NewGuid(), Name = "Accountant", Description = "Finance & accounting" },
+            new() { Id = Guid.NewGuid(), Name = "Viewer", Description = "Read-only access" },
+        };
+        db.Roles.AddRange(roles);
+        await db.SaveChangesAsync(ct);
+
+        var rolePerms = new Dictionary<string, string[]>
+        {
+            ["Admin"] = AppPermissions.GetAll().ToArray(),
+            ["Manager"] = [
+                AppPermissions.Customers.View, AppPermissions.Customers.Create, AppPermissions.Customers.Edit,
+                AppPermissions.SalesOrders.View, AppPermissions.SalesOrders.Create, AppPermissions.SalesOrders.Edit,
+                AppPermissions.PurchaseOrders.View, AppPermissions.PurchaseOrders.Create, AppPermissions.PurchaseOrders.Edit,
+                AppPermissions.Payments.View, AppPermissions.Payments.Create, AppPermissions.Payments.Edit,
+                AppPermissions.Inventory.View, AppPermissions.Inventory.Transfer,
+                AppPermissions.Reports.View,
+                AppPermissions.VehicleLoading.View, AppPermissions.VehicleLoading.Create, AppPermissions.VehicleLoading.Edit,
+                AppPermissions.Settlements.View, AppPermissions.Settlements.Create, AppPermissions.Settlements.Approve,
+                AppPermissions.Commission.View, AppPermissions.Commission.Manage,
+                AppPermissions.Notifications.View, AppPermissions.Notifications.Send,
+            ],
+            ["Salesman"] = [
+                AppPermissions.Customers.View,
+                AppPermissions.SalesOrders.View, AppPermissions.SalesOrders.Create,
+                AppPermissions.Payments.View, AppPermissions.Payments.Create,
+                AppPermissions.Inventory.View,
+                AppPermissions.Commission.View,
+            ],
+            ["Driver"] = [
+                AppPermissions.VehicleLoading.View,
+                AppPermissions.Settlements.View,
+            ],
+            ["Warehouse"] = [
+                AppPermissions.Inventory.View, AppPermissions.Inventory.Transfer,
+                AppPermissions.VehicleLoading.View, AppPermissions.VehicleLoading.Create, AppPermissions.VehicleLoading.Edit,
+                AppPermissions.PurchaseOrders.View,
+            ],
+            ["Accountant"] = [
+                AppPermissions.Customers.View,
+                AppPermissions.SalesOrders.View,
+                AppPermissions.PurchaseOrders.View,
+                AppPermissions.Payments.View, AppPermissions.Payments.Create, AppPermissions.Payments.Edit,
+                AppPermissions.Reports.View,
+                AppPermissions.Commission.View,
+            ],
+            ["Viewer"] = [
+                AppPermissions.Customers.View,
+                AppPermissions.SalesOrders.View,
+                AppPermissions.PurchaseOrders.View,
+                AppPermissions.Payments.View,
+                AppPermissions.Inventory.View,
+                AppPermissions.Reports.View,
+                AppPermissions.Commission.View,
+            ],
+        };
+
+        foreach (var role in roles)
+        {
+            if (rolePerms.TryGetValue(role.Name, out var permNames))
+            {
+                var rolePermissions = permNames
+                    .Where(p => permDict.ContainsKey(p))
+                    .Select(p => new RolePermission { RoleId = role.Id, PermissionId = permDict[p].Id })
+                    .ToList();
+                db.RolePermissions.AddRange(rolePermissions);
+            }
+        }
+        await db.SaveChangesAsync(ct);
+
+        var adminRoleId = roles.First(r => r.Name == "Admin").Id;
+        var adminUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = "admin",
+            Email = "admin@lpgerp.com",
+            PasswordHash = HashForSeed("admin123"),
+            FullName = "System Administrator",
+            Phone = "01700000000",
+            IsActive = true,
+        };
+        db.Users.Add(adminUser);
+        db.UserRoles.Add(new UserRole { UserId = adminUser.Id, RoleId = adminRoleId });
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static string HashForSeed(string password)
+    {
+        return BCrypt.Net.BCrypt.HashPassword(password);
     }
 }

@@ -1,11 +1,13 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.Payments;
 using LpgErp.Application.Features.Payments.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class PaymentsController : ControllerBase
 {

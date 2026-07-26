@@ -22,12 +22,14 @@ public class PaymentService : IPaymentService
     private readonly IApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly INotificationService _notificationService;
 
-    public PaymentService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper)
+    public PaymentService(IApplicationDbContext context, IUnitOfWork unitOfWork, IMapper mapper, INotificationService notificationService)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
 
     public async Task<Result<PagedResult<PaymentDto>>> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
@@ -95,6 +97,38 @@ public class PaymentService : IPaymentService
         var entity = _mapper.Map<Payment>(request);
         await _context.Payments.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (request.Direction == PaymentDirection.Inbound && request.SalesOrderId.HasValue)
+        {
+            try
+            {
+                var order = await _context.SalesOrders.FindAsync([request.SalesOrderId.Value], cancellationToken);
+                if (order != null)
+                {
+                    await _notificationService.NotifyPaymentReceivedAsync(
+                        order.OrderNumber,
+                        request.Amount,
+                        request.Method.ToString(),
+                        order.CustomerId);
+                }
+            }
+            catch { /* notification failure should not break the main operation */ }
+        }
+        else if (request.Direction == PaymentDirection.Outbound && request.PurchaseOrderId.HasValue)
+        {
+            try
+            {
+                var order = await _context.PurchaseOrders.FindAsync([request.PurchaseOrderId.Value], cancellationToken);
+                if (order != null)
+                {
+                    await _notificationService.NotifyPaymentOutboundAsync(
+                        order.OrderNumber,
+                        request.Amount,
+                        request.Method.ToString());
+                }
+            }
+            catch { /* notification failure should not break the main operation */ }
+        }
 
         return await GetByIdAsync(entity.Id, cancellationToken);
     }

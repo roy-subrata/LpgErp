@@ -9,6 +9,7 @@ using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using LpgErp.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -26,7 +27,7 @@ public class VehicleLoadingStockTests
             .Options);
 
     private VehicleLoadingService NewService(LpgErpDbContext context) =>
-        new(context, new UnitOfWork(context), _mapper);
+        new(context, new UnitOfWork(context), _mapper, new NullNotificationService());
 
     private Guid _warehouseId, _truckId, _driverId, _salesmanId, _productId;
 

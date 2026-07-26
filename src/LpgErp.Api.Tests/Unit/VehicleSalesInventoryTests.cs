@@ -10,6 +10,7 @@ using LpgErp.Infrastructure.Persistence;
 using LpgErp.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using LpgErp.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
@@ -65,7 +66,7 @@ public class VehicleSalesInventoryTests
     private async Task<Guid> DispatchAsync(int qty)
     {
         using var c = NewContext();
-        var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper);
+        var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
         var result = await service.CreateAsync(new CreateVehicleLoadingRequest
         {
             LoadingDate = DateTime.UtcNow,
@@ -81,7 +82,7 @@ public class VehicleSalesInventoryTests
     private async Task<(bool ok, string? error, Guid orderId)> SellFromVehicleAsync(Guid loadingId, int qty)
     {
         using var c = NewContext();
-        var service = new SalesOrderService(c, new UnitOfWork(c), _mapper);
+        var service = new SalesOrderService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
         var created = await service.CreateAsync(new CreateSalesOrderRequest
         {
             CustomerId = _customerId,
@@ -137,7 +138,7 @@ public class VehicleSalesInventoryTests
 
         using (var c = NewContext())
         {
-            var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper);
+            var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
             (await service.CloseAsync(loadingId, new CreateVehicleClosingRequest
             {
                 VehicleLoadingId = loadingId,
@@ -160,7 +161,7 @@ public class VehicleSalesInventoryTests
 
         using (var c = NewContext())
         {
-            var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper);
+            var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
             var result = await service.CloseAsync(loadingId, new CreateVehicleClosingRequest
             {
                 VehicleLoadingId = loadingId,
@@ -184,7 +185,7 @@ public class VehicleSalesInventoryTests
         (await SellFromVehicleAsync(loadingId, 20)).ok.Should().BeTrue();
 
         using var c = NewContext();
-        var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper);
+        var service = new VehicleLoadingService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
         var result = await service.CloseAsync(loadingId, new CreateVehicleClosingRequest
         {
             VehicleLoadingId = loadingId,
@@ -201,7 +202,7 @@ public class VehicleSalesInventoryTests
         await SeedAsync(stock: 100);
 
         using var c = NewContext();
-        var service = new SalesOrderService(c, new UnitOfWork(c), _mapper);
+        var service = new SalesOrderService(c, new UnitOfWork(c), _mapper, new NullNotificationService());
         var created = await service.CreateAsync(new CreateSalesOrderRequest
         {
             CustomerId = _customerId,
