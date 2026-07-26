@@ -397,6 +397,13 @@ export class AppComponent {
         { label: 'Price History', icon: '📈', route: 'price-histories' },
       ],
     },
+    {
+      title: 'Commission',
+      items: [
+        { label: 'Commission Policies', icon: '📋', route: 'commission-policies' },
+        { label: 'Commission Ledger', icon: '☰', route: 'commission-ledgers' },
+      ],
+    },
   ];
 
   currentPageLabel = signal('Dashboard');
@@ -434,6 +441,8 @@ export class AppComponent {
     'cylinder-sizes': 'Cylinder Sizes',
     'suppliers': 'Suppliers',
     'transport-companies': 'Transport Companies',
+    'commission-policies': 'Commission Policies',
+    'commission-ledgers': 'Commission Ledger',
   };
 
   constructor(router: Router) {

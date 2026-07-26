@@ -30,6 +30,8 @@ using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.TransportCompanies;
 using LpgErp.Application.Features.VehicleClosings;
 using LpgErp.Application.Features.PriceHistories;
+using LpgErp.Application.Features.CommissionPolicies;
+using LpgErp.Application.Features.CommissionLedgers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LpgErp.Application;
@@ -71,6 +73,8 @@ public static class DependencyInjection
         services.AddScoped<ITransportCompanyService, TransportCompanyService>();
         services.AddScoped<IVehicleClosingService, VehicleClosingService>();
         services.AddScoped<IPriceHistoryService, PriceHistoryService>();
+        services.AddScoped<ICommissionPolicyService, CommissionPolicyService>();
+        services.AddScoped<ICommissionLedgerService, CommissionLedgerService>();
 
         return services;
     }

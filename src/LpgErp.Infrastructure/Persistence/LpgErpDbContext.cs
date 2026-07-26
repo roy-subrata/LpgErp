@@ -48,6 +48,8 @@ public class LpgErpDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<CustomerNotification> CustomerNotifications => Set<CustomerNotification>();
     public DbSet<TransportCompany> TransportCompanies => Set<TransportCompany>();
     public DbSet<PriceHistory> PriceHistories => Set<PriceHistory>();
+    public DbSet<CommissionPolicy> CommissionPolicies => Set<CommissionPolicy>();
+    public DbSet<CommissionLedger> CommissionLedgers => Set<CommissionLedger>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

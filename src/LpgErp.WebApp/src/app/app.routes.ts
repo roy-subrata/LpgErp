@@ -172,5 +172,15 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/price-histories/price-history-list.component').then(m => m.PriceHistoryListComponent),
   },
+  {
+    path: 'commission-policies',
+    loadComponent: () =>
+      import('./features/commission-policies/commission-policy-list.component').then(m => m.CommissionPolicyListComponent),
+  },
+  {
+    path: 'commission-ledgers',
+    loadComponent: () =>
+      import('./features/commission-ledgers/commission-ledger-list.component').then(m => m.CommissionLedgerListComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];

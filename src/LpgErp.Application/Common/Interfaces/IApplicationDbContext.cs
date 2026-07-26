@@ -36,6 +36,8 @@ public interface IApplicationDbContext
     DbSet<CustomerNotification> CustomerNotifications { get; }
     DbSet<TransportCompany> TransportCompanies { get; }
     DbSet<PriceHistory> PriceHistories { get; }
+    DbSet<CommissionPolicy> CommissionPolicies { get; }
+    DbSet<CommissionLedger> CommissionLedgers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
