@@ -5,6 +5,8 @@ import { ApiService } from '../../core/api.service';
 import { CommissionPolicy } from '../../core/commission.models';
 import { DialogComponent } from '../../shared/dialog.component';
 
+interface EntityOption { id: string; name: string; }
+
 @Component({
   selector: 'app-commission-policy-list',
   standalone: true,
@@ -30,6 +32,7 @@ import { DialogComponent } from '../../shared/dialog.component';
         <tr>
           <th>Name</th>
           <th>Type</th>
+          <th>Entity</th>
           <th>Target</th>
           <th>Commission</th>
           <th>Period</th>
@@ -45,6 +48,7 @@ import { DialogComponent } from '../../shared/dialog.component';
               <div class="policy-desc">{{ item.description || '-' }}</div>
             </td>
             <td><span class="badge" [class]="entityBadge(item.entityType)">{{ entityLabel(item.entityType) }}</span></td>
+            <td>{{ item.entityName || getEntityNameLocal(item.entityType, item.entityId) || item.entityId }}</td>
             <td>{{ item.targetQuantity }} units</td>
             <td>
               @if (item.calculationType === 0) { {{ item.commissionValue }}% }
@@ -61,7 +65,7 @@ import { DialogComponent } from '../../shared/dialog.component';
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="7" class="text-center">No commission policies found</td></tr>
+          <tr><td colspan="8" class="text-center">No commission policies found</td></tr>
         }
       </tbody>
     </table>
@@ -79,16 +83,21 @@ import { DialogComponent } from '../../shared/dialog.component';
         <div class="form-row">
           <div class="form-group">
             <label>Apply To</label>
-            <select [(ngModel)]="form.entityType" name="entityType">
+            <select [(ngModel)]="form.entityType" name="entityType" (ngModelChange)="onEntityTypeChange()">
               <option [ngValue]="0">Salesman</option>
               <option [ngValue]="1">Customer</option>
               <option [ngValue]="2">Supplier</option>
-        <option [ngValue]="3">Driver</option>
+              <option [ngValue]="3">Driver</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Entity ID</label>
-            <input type="text" [(ngModel)]="form.entityId" name="entityId" placeholder="GUID" required />
+            <label>{{ entityLabel(form.entityType) }}</label>
+            <select [(ngModel)]="form.entityId" name="entityId" required>
+              <option value="" disabled>Select {{ entityLabel(form.entityType) }}...</option>
+              @for (e of entityOptions(); track e.id) {
+                <option [value]="e.id">{{ e.name }}</option>
+              }
+            </select>
           </div>
         </div>
         <div class="form-row">
@@ -178,9 +187,18 @@ export class CommissionPolicyListComponent implements OnInit {
   editingId = '';
   filterType = -1;
 
+  entityOptions = signal<EntityOption[]>([]);
+  private allSalesmen: EntityOption[] = [];
+  private allCustomers: EntityOption[] = [];
+  private allSuppliers: EntityOption[] = [];
+  private allDrivers: EntityOption[] = [];
+
   form = this.getEmptyForm();
 
-  ngOnInit() { this.loadPolicies(); }
+  ngOnInit() {
+    this.loadPolicies();
+    this.loadEntityLists();
+  }
 
   loadPolicies() {
     this.api.getAll<CommissionPolicy>('commissionpolicies').subscribe(data => {
@@ -190,9 +208,22 @@ export class CommissionPolicyListComponent implements OnInit {
     });
   }
 
+  private loadEntityLists() {
+    this.api.getAll<{ id: string; name: string }>('salesmen', 1, 200).subscribe(d => this.allSalesmen = (d.items || []).map(e => ({ id: e.id, name: e.name })));
+    this.api.getAll<{ id: string; name: string }>('customers', 1, 200).subscribe(d => this.allCustomers = (d.items || []).map(e => ({ id: e.id, name: e.name })));
+    this.api.getAll<{ id: string; name: string }>('suppliers', 1, 200).subscribe(d => this.allSuppliers = (d.items || []).map(e => ({ id: e.id, name: e.name })));
+    this.api.getAll<{ id: string; name: string }>('drivers', 1, 200).subscribe(d => this.allDrivers = (d.items || []).map(e => ({ id: e.id, name: e.name })));
+  }
+
+  onEntityTypeChange() {
+    this.form.entityId = '';
+    this.entityOptions.set(this.getEntitiesForType(this.form.entityType));
+  }
+
   openCreate() {
     this.editingId = '';
     this.form = this.getEmptyForm();
+    this.entityOptions.set(this.getEntitiesForType(0));
     this.dialogOpen.set(true);
   }
 
@@ -216,6 +247,7 @@ export class CommissionPolicyListComponent implements OnInit {
       startDate: item.startDate?.split('T')[0] || '',
       endDate: item.endDate?.split('T')[0] || ''
     };
+    this.entityOptions.set(this.getEntitiesForType(item.entityType));
     this.dialogOpen.set(true);
   }
 
@@ -239,6 +271,15 @@ export class CommissionPolicyListComponent implements OnInit {
   entityLabel(type: number): string { return ['Salesman', 'Customer', 'Supplier', 'Driver'][type] || 'Unknown'; }
   entityBadge(type: number): string { return ['badge-blue', 'badge-green', 'badge-purple', 'badge-orange'][type] || ''; }
   periodLabel(type: number): string { return ['One Time', 'Weekly', 'Monthly', 'Yearly'][type] || ''; }
+
+  getEntityNameLocal(type: number, id: string): string {
+    const list = this.getEntitiesForType(type);
+    return list.find(e => e.id === id)?.name || '';
+  }
+
+  private getEntitiesForType(type: number): EntityOption[] {
+    return [this.allSalesmen, this.allCustomers, this.allSuppliers, this.allDrivers][type] || [];
+  }
 
   private getEmptyForm() {
     return {
