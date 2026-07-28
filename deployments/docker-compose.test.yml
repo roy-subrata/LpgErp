@@ -1,6 +1,6 @@
-# Test/staging stack: fully isolated from production (own db volume, own database, demo seed data).
-# Web on ${TEST_WEB_PORT:-8080}. Run with a separate project name so both stacks can coexist:
-#   docker compose -f docker-compose.test.yml -p lpgerp-test up -d --build
+# Test/staging stack: fully isolated from production (own db volume, own database, own JWT key,
+# demo seed data). Web on ${TEST_WEB_PORT:-8080}. Separate project name so both stacks coexist:
+#   docker compose -p lpgerp-test --env-file .env.test -f docker-compose.test.yml up -d --build
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -27,6 +27,10 @@ services:
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=LpgErpTest;User=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
       UseHttpsRedirect: "false"
       SeedData: "true"   # test stack starts with the demo dataset
+      # Distinct key + audience from production, so test tokens are rejected by the prod API.
+      Jwt__SecretKey: ${JWT_SECRET:?set JWT_SECRET in .env.test}
+      Jwt__Issuer: LpgErpTest
+      Jwt__Audience: LpgErpAppTest
     depends_on:
       db:
         condition: service_healthy

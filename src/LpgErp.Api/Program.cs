@@ -86,11 +86,25 @@ try
     var jwtSettings = new JwtSettings();
     builder.Configuration.GetSection("Jwt").Bind(jwtSettings);
 
-    // Allow env var override for the secret key (never commit real secrets to source)
-    var envSecret = builder.Configuration["Jwt:SecretKey"]
-        ?? Environment.GetEnvironmentVariable("LPG_JWT_SECRET");
-    if (!string.IsNullOrEmpty(envSecret))
-        jwtSettings.SecretKey = envSecret;
+    // The SecretKey in appsettings.json is a placeholder so local dev runs out of the box.
+    // Every deployed environment must supply its own via the Jwt__SecretKey env var — a shared
+    // or committed key lets anyone forge tokens, and lets a test token authenticate against prod.
+    if (!builder.Environment.IsDevelopment())
+    {
+        if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey) ||
+            jwtSettings.SecretKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Jwt__SecretKey is not configured. Set a unique per-environment key " +
+                "(see deployments/.env.example) before starting outside Development.");
+        }
+
+        if (Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32)
+        {
+            throw new InvalidOperationException(
+                "Jwt__SecretKey must be at least 32 bytes to sign HMAC-SHA256 tokens.");
+        }
+    }
 
     builder.Services.AddAuthentication(options =>
     {
@@ -174,6 +188,8 @@ try
 catch (Exception ex)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
+    // Non-zero exit so a misconfigured container shows as failed instead of "exited (0)".
+    Environment.ExitCode = 1;
 }
 finally
 {

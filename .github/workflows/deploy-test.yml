@@ -13,8 +13,16 @@ on:
       - '.github/workflows/deploy-test.yml'
   workflow_dispatch:
 
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
   deploy-test:
+    needs: verify
     runs-on: ubuntu-latest
     environment: test
     steps:
@@ -26,32 +34,43 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           timeout: 30s
-          command_timeout: 10m
+          command_timeout: 20m
+          script_stop: true
           script: |
-            cd ~/LpgErp || { echo "Directory not found! Run initial setup first."; exit 1; }
+            set -euo pipefail
 
-            echo "=== Pulling latest code from test branch ==="
+            cd ~/LpgErp-test || { echo "~/LpgErp-test not found — run the first-time setup in deployments/README.md"; exit 1; }
+
+            COMPOSE="docker compose -p lpgerp-test --env-file deployments/.env.test -f deployments/docker-compose.test.yml"
+
+            echo "=== Pulling latest code from test ==="
             git fetch origin test
             git reset --hard origin/test
 
-            echo "=== Stopping old test containers ==="
-            docker compose -p lpgerp-test --env-file deployments/.env -f deployments/docker-compose.test.yml down --remove-orphans --timeout 30
+            echo "=== Building images ==="
+            $COMPOSE build
 
-            echo "=== Waiting for containers to fully stop ==="
-            for i in $(seq 1 10); do
-              if docker ps -a --format '{{.Names}}' | grep -q 'lpgerp-test'; then
-                echo "Still waiting... ($i/10)"
-                sleep 2
-              else
-                echo "All old containers removed."
-                break
-              fi
+            echo "=== Starting new containers ==="
+            $COMPOSE up -d --remove-orphans
+
+            echo "=== Smoke test ==="
+            WEB_PORT=$(grep -E '^TEST_WEB_PORT=' deployments/.env.test | cut -d= -f2- | tr -d '"' || true)
+            WEB_PORT=${WEB_PORT:-8080}
+            code=000
+            for i in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${WEB_PORT}/" || echo 000)
+              [ "$code" = "200" ] && break
+              echo "waiting for web ($i/30, last=$code)"; sleep 5
             done
+            if [ "$code" != "200" ]; then
+              echo "Web did not come up (last status $code)"; $COMPOSE logs --tail=80; exit 1
+            fi
 
-            echo "=== Building and starting test stack ==="
-            docker compose -p lpgerp-test --env-file deployments/.env -f deployments/docker-compose.test.yml up --build -d --force-recreate
+            api=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${WEB_PORT}/api/v1/customers" || echo 000)
+            if [ "$api" = "000" ] || [ "$api" -ge 500 ]; then
+              echo "API not healthy (status $api)"; $COMPOSE logs --tail=80 api; exit 1
+            fi
+            echo "web=200 api=$api"
 
-            echo "=== Cleaning up unused Docker images ==="
             docker image prune -f
-
-            echo "=== Test deployment complete! ==="
+            echo "=== Test deployment complete ==="

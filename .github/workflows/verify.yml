@@ -1,0 +1,45 @@
+name: Verify
+
+# Reusable build + test gate. Called by ci.yml on pull requests and by both deploy
+# workflows before they touch a server, so a broken commit can never reach the VPS.
+on:
+  workflow_call:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore src/LpgErp.sln
+
+      - name: Build
+        run: dotnet build src/LpgErp.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test src/LpgErp.Api.Tests -c Release --no-build --verbosity normal
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/LpgErp.WebApp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/LpgErp.WebApp/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (production configuration)
+        run: npx ng build --configuration production

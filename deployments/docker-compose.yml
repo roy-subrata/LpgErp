@@ -1,6 +1,6 @@
 # Production stack: web (nginx + Angular) on ${WEB_PORT:-80}, API and SQL Server internal-only.
-# Usage:  cp .env.example .env   (set a strong SA_PASSWORD)
-#         docker compose up -d --build
+# Usage:  cp .env.example .env.prod   (set a strong SA_PASSWORD and a unique JWT_SECRET)
+#         docker compose -p lpgerp-prod --env-file .env.prod up -d --build
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -26,6 +26,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=LpgErp;User=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
       UseHttpsRedirect: "false"
+      # Must differ from the test stack's key, or a test token authenticates against production.
+      Jwt__SecretKey: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      Jwt__Issuer: LpgErp
+      Jwt__Audience: LpgErpApp
     volumes:
       - lpg-api-logs:/app/logs
     depends_on:

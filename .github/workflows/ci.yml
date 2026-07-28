@@ -1,0 +1,12 @@
+name: CI
+
+# Runs the build + test gate on every PR into main or test, so problems surface
+# before the merge that would deploy them.
+on:
+  pull_request:
+    branches: [main, test]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
