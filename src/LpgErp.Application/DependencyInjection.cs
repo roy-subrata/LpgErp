@@ -36,6 +36,7 @@ using LpgErp.Application.Features.PriceHistories;
 using LpgErp.Application.Features.CommissionPolicies;
 using LpgErp.Application.Features.CommissionLedgers;
 using LpgErp.Application.Features.Roles;
+using LpgErp.Application.Features.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LpgErp.Application;
@@ -76,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerGasLedgerService, CustomerGasLedgerService>();
         services.AddScoped<ICustomerAccountService, CustomerAccountService>();
         services.AddScoped<ISupplierAccountService, SupplierAccountService>();
+        services.AddScoped<ICompanySettingsService, CompanySettingsService>();
         services.AddScoped<ICustomerCreditService, CustomerCreditService>();
         services.AddScoped<ITransportCompanyService, TransportCompanyService>();
         services.AddScoped<IVehicleClosingService, VehicleClosingService>();

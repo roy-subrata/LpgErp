@@ -151,7 +151,7 @@ interface SalesItem {
     .field-hint { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; }
     .checkbox-group input[type="checkbox"] { width: auto; }
     .item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
-    .item-row select, .item-row input { flex: 1; }
+    .item-row select, .item-row input { flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font: inherit; }
     .btn-remove { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.5rem; cursor: pointer; flex-shrink: 0; }
     .btn-add { background: #28a745; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }

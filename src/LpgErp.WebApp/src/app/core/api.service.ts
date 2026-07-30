@@ -73,4 +73,10 @@ export class ApiService {
     return this.http.post<ApiResponse<T>>(`${this.baseUrl}/${endpoint}`, body)
       .pipe(map(response => response.data!));
   }
+
+  /** PUT with no id in the path — for singleton resources (e.g. company settings). */
+  put<T>(endpoint: string, body: unknown): Observable<T> {
+    return this.http.put<ApiResponse<T>>(`${this.baseUrl}/${endpoint}`, body)
+      .pipe(map(response => response.data!));
+  }
 }

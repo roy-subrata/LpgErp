@@ -52,11 +52,14 @@ public class PurchaseOrderCommissionTests
         _gasId = gas.Id;
     }
 
-    private CreatePurchaseOrderRequest OrderFor(Guid productId, int qty, decimal unitPrice) => new()
+    // Commission credit is a caller-supplied amount (optional, overridable per order), not an automatic
+    // deduction — so tests exercising it must ask for it explicitly.
+    private CreatePurchaseOrderRequest OrderFor(Guid productId, int qty, decimal unitPrice, decimal commissionCreditApplied = 0m) => new()
     {
         SupplierId = _supplierId,
         WarehouseId = _warehouseId,
-        Items = [new CreatePurchaseOrderItemRequest { ProductId = productId, OrderedQuantity = qty, UnitPrice = unitPrice }]
+        Items = [new CreatePurchaseOrderItemRequest { ProductId = productId, OrderedQuantity = qty, UnitPrice = unitPrice }],
+        CommissionCreditApplied = commissionCreditApplied,
     };
 
     // Runs create -> confirm -> receive (all good, no damage) for a single-product order, each on its own context.
@@ -123,14 +126,14 @@ public class PurchaseOrderCommissionTests
     }
 
     [Fact]
-    public async Task Create_AutoAppliesCommissionBalance_AgainstNextOrder()
+    public async Task Create_AppliesRequestedCommissionCredit_AgainstOrder()
     {
         await SeedAsync(commissionPerCylinder: 50m);
         await ReceiveOrderAsync(_cylinderId, 100, 800m); // -> 5000 balance
 
-        // Second order: 10 cylinders * 800 = 8000 payable; 5000 balance fully applied.
+        // Second order: 10 cylinders * 800 = 8000 payable; caller asks for the full 5000 balance.
         using var c = NewContext();
-        var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 10, 800m));
+        var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 10, 800m, commissionCreditApplied: 5000m));
 
         second.Data!.CommissionApplied.Should().Be(5000m);
         second.Data.NetPayable.Should().Be(3000m); // 8000 - 5000
@@ -138,17 +141,33 @@ public class PurchaseOrderCommissionTests
     }
 
     [Fact]
-    public async Task Create_AppliesCappedAtPayable_WhenBalanceExceedsOrder()
+    public async Task Create_AppliesRequestedCommissionCredit_UpToPayable_WhenBalanceExceedsOrder()
     {
         await SeedAsync(commissionPerCylinder: 50m);
         await ReceiveOrderAsync(_cylinderId, 100, 800m); // -> 5000 balance
 
+        // Order is only worth 800; requesting exactly that (the most this order can absorb) succeeds
+        // even though the balance (5000) could cover much more.
         using var c = NewContext();
-        var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 1, 800m));
+        var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 1, 800m, commissionCreditApplied: 800m));
 
-        second.Data!.CommissionApplied.Should().Be(800m); // capped at the 800 payable
+        second.Data!.CommissionApplied.Should().Be(800m);
         second.Data.NetPayable.Should().Be(0m);
         (await SupplierBalanceAsync()).Should().Be(4200m); // 5000 - 800
+    }
+
+    [Fact]
+    public async Task Create_RejectsCommissionCredit_ExceedingWhatsAvailableForTheOrder()
+    {
+        await SeedAsync(commissionPerCylinder: 50m);
+        await ReceiveOrderAsync(_cylinderId, 100, 800m); // -> 5000 balance
+
+        // Order is only worth 800, so 900 exceeds min(balance, payable) even though the balance itself covers it.
+        using var c = NewContext();
+        var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 1, 800m, commissionCreditApplied: 900m));
+
+        second.IsSuccess.Should().BeFalse();
+        (await SupplierBalanceAsync()).Should().Be(5000m); // untouched — the rejected request never applied
     }
 
     [Fact]
@@ -160,7 +179,7 @@ public class PurchaseOrderCommissionTests
         Guid secondId;
         using (var c = NewContext())
         {
-            var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 1, 800m));
+            var second = await NewService(c).CreateAsync(OrderFor(_cylinderId, 1, 800m, commissionCreditApplied: 800m));
             second.Data!.CommissionApplied.Should().Be(800m);
             secondId = second.Data.Id;
         }

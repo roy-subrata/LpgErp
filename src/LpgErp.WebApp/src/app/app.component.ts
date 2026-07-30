@@ -1,8 +1,10 @@
 import { Component, signal, computed, effect, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { NotificationHubService } from './core/notification-hub.service';
+import { CompanySettingsService } from './core/company-settings.service';
 import { ToastComponent } from './features/toast/toast.component';
 import { NotificationPanelComponent } from './shared/notification-panel.component';
 
@@ -31,7 +33,7 @@ interface NavGroup {
           <div class="brand-logo">L</div>
           @if (!sidebarCollapsed()) {
             <div class="brand-text">
-              <div class="brand-title">LPG ERP</div>
+              <div class="brand-title">{{ companySettings.displayName() }}</div>
               <div class="brand-subtitle">DISTRIBUTOR SUITE</div>
             </div>
           }
@@ -78,7 +80,7 @@ interface NavGroup {
               <span class="toggle-icon">{{ sidebarCollapsed() ? '☰' : '✕' }}</span>
             </button>
             <div class="breadcrumb">
-              <span class="breadcrumb-muted">LPG ERP</span>
+              <span class="breadcrumb-muted">{{ companySettings.displayName() }}</span>
               <span class="breadcrumb-sep">/</span>
               <span class="breadcrumb-active">{{ currentPageLabel() }}</span>
             </div>
@@ -461,6 +463,8 @@ interface NavGroup {
 export class AppComponent {
   private authService = inject(AuthService);
   private notificationHub = inject(NotificationHubService);
+  private titleService = inject(Title);
+  companySettings = inject(CompanySettingsService);
 
   sidebarCollapsed = signal(false);
   private onLoginRoute = signal(false);
@@ -491,6 +495,13 @@ export class AppComponent {
   }
 
   constructor(router: Router) {
+    this.companySettings.load();
+    // Browser tab title follows the configured company name once it loads; falls back to the
+    // "LPG ERP" default from CompanySettingsService.displayName() until then.
+    effect(() => {
+      this.titleService.setTitle(`${this.companySettings.displayName()} — Distributor Suite`);
+    });
+
     // Connect once the user is authenticated, which for a fresh login happens long
     // after construction. start() is a no-op when already connected.
     effect(() => {
@@ -598,6 +609,7 @@ export class AppComponent {
       items: [
         { label: 'Users', icon: '🔐', route: 'users', adminOnly: true },
         { label: 'Roles & Permissions', icon: '🛡', route: 'roles', adminOnly: true },
+        { label: 'Company Settings', icon: '⚙', route: 'settings', adminOnly: true },
       ],
     },
   ];
@@ -643,6 +655,7 @@ export class AppComponent {
     'commission-ledgers': 'Commission Ledger',
     'users': 'Users',
     'roles': 'Roles & Permissions',
+    'settings': 'Company Settings',
   };
 
   toggleSidebar() {

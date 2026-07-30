@@ -67,7 +67,7 @@ public class ReportAccountingTests
     };
 
     [Fact]
-    public async Task Financial_report_counts_delivered_sales_only()
+    public async Task Financial_report_recognises_revenue_on_delivery_but_receivable_includes_confirmed()
     {
         using var context = await SeedAsync();
         context.SalesOrders.AddRange(
@@ -77,14 +77,19 @@ public class ReportAccountingTests
             Order(SalesOrderStatus.Cancelled, 200m));
         await context.SaveChangesAsync();
 
-        var result = await new ReportService(context).GetFinancialReportAsync(_from, _to);
+        var result = await new ReportService(context, new CustomerAccountService(context)).GetFinancialReportAsync(_from, _to);
 
+        // Revenue is recognised on delivery — the draft and cancelled orders never count, and the
+        // confirmed one hasn't shipped yet.
         result.Data!.TotalSales.Should().Be(1000m);
-        result.Data.AccountsReceivable.Should().Be(1000m);
+
+        // Receivable is a balance-sheet snapshot of what's owed right now, so it also includes the
+        // confirmed credit sale sitting un-delivered — money owed doesn't wait for the truck to leave.
+        result.Data.AccountsReceivable.Should().Be(1500m);
     }
 
     [Fact]
-    public async Task Receivable_ignores_payments_taken_against_undelivered_orders()
+    public async Task Receivable_includes_confirmed_credit_sales_not_yet_delivered()
     {
         using var context = await SeedAsync();
         var delivered = Order(SalesOrderStatus.Delivered, 1000m);
@@ -94,15 +99,15 @@ public class ReportAccountingTests
 
         context.Payments.AddRange(
             new Payment { SalesOrderId = delivered.Id, Direction = PaymentDirection.Inbound, Amount = 400m, PaymentDate = new DateTime(2026, 6, 2) },
-            // A deposit taken up front on an order that has not shipped.
-            new Payment { SalesOrderId = confirmed.Id, Direction = PaymentDirection.Inbound, Amount = 5000m, PaymentDate = new DateTime(2026, 6, 2) });
+            // Partial payment up front on an order that hasn't shipped — still owed, so still a receivable.
+            new Payment { SalesOrderId = confirmed.Id, Direction = PaymentDirection.Inbound, Amount = 3000m, PaymentDate = new DateTime(2026, 6, 2) });
         await context.SaveChangesAsync();
 
-        var report = (await new ReportService(context).GetFinancialReportAsync(_from, _to)).Data!;
+        var report = (await new ReportService(context, new CustomerAccountService(context)).GetFinancialReportAsync(_from, _to)).Data!;
 
-        report.TotalSales.Should().Be(1000m);
-        report.TotalPayments.Should().Be(5400m);      // all cash collected
-        report.AccountsReceivable.Should().Be(600m);  // not 1000 - 5400 = -4400
+        report.TotalSales.Should().Be(1000m);          // revenue recognised on delivery only
+        report.TotalPayments.Should().Be(3400m);        // all cash collected
+        report.AccountsReceivable.Should().Be(2600m);   // (1000 + 5000) - (400 + 3000)
     }
 
     [Fact]
@@ -115,7 +120,7 @@ public class ReportAccountingTests
             new CylinderDeposit { CustomerId = _customerId, CylinderSizeId = _sizeId, Type = CylinderDepositType.Refund, Amount = 500m });
         await context.SaveChangesAsync();
 
-        var result = await new ReportService(context).GetFinancialReportAsync(_from, _to);
+        var result = await new ReportService(context, new CustomerAccountService(context)).GetFinancialReportAsync(_from, _to);
 
         // 5000 held, 2000 given back.
         result.Data!.DepositLiability.Should().Be(3000m);
@@ -136,7 +141,7 @@ public class ReportAccountingTests
         context.SalesmanSettlements.Add(new SalesmanSettlement { SalesmanId = salesman.Id, SettlementDate = date, Commission = 250m, Bonus = 100m, DailyAllowance = 200m });
         await context.SaveChangesAsync();
 
-        var svc = new ReportService(context);
+        var svc = new ReportService(context, new CustomerAccountService(context));
         var financial = (await svc.GetFinancialReportAsync(_from, _to)).Data!;
         var pnl = (await svc.GetPnLBreakdownAsync(_from, _to)).Data!;
 

@@ -43,4 +43,13 @@ public class CustomerCylinderLedgerController : ControllerBase
             return BadRequest(ApiResponse<CustomerCylinderBalanceDto>.Fail(result.Error!));
         return Ok(ApiResponse<CustomerCylinderBalanceDto>.Ok(result.Data!));
     }
+
+    [HttpPost("forfeit")]
+    public async Task<IActionResult> Forfeit([FromBody] ForfeitCylinderRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _service.ForfeitAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+            return BadRequest(ApiResponse<ForfeitCylinderResultDto>.Fail(result.Error!));
+        return Ok(ApiResponse<ForfeitCylinderResultDto>.Ok(result.Data!));
+    }
 }

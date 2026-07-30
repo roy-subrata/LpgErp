@@ -84,7 +84,7 @@ public class CustomerAccountService : ICustomerAccountService
 
         var cylindersHeld = await _context.CustomerCylinderBalances
             .Where(b => b.CustomerId == customer.Id && !b.IsDeleted)
-            .SumAsync(b => b.Received - b.Returned, ct);
+            .SumAsync(b => b.Received - b.Returned - b.Forfeited, ct);
 
         var due = billed - paid;
 
@@ -189,14 +189,14 @@ public class CustomerAccountService : ICustomerAccountService
         var summary = await BuildSummaryAsync(customer, ct);
 
         var cylinders = await _context.CustomerCylinderBalances
-            .Where(b => b.CustomerId == customerId && !b.IsDeleted && b.Received - b.Returned != 0)
+            .Where(b => b.CustomerId == customerId && !b.IsDeleted && b.Received - b.Returned - b.Forfeited != 0)
             .Include(b => b.Brand)
             .Include(b => b.CylinderSize)
             .Select(b => new CylinderHoldingDto
             {
                 BrandName = b.Brand.Name,
                 CylinderSizeName = b.CylinderSize.Name,
-                Held = b.Received - b.Returned,
+                Held = b.Received - b.Returned - b.Forfeited,
             })
             .ToListAsync(ct);
 

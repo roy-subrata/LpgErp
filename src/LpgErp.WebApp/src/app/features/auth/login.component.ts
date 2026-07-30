@@ -1,9 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { CompanySettingsService } from '../../core/company-settings.service';
 
 @Component({
   selector: 'app-login',
@@ -13,8 +14,8 @@ import { AuthService } from '../../core/auth.service';
     <div class="login-page">
       <div class="login-card">
         <div class="login-header">
-          <div class="brand-logo">L</div>
-          <h1>LPG ERP</h1>
+          <div class="brand-logo">{{ companySettings.displayName()[0] }}</div>
+          <h1>{{ companySettings.displayName() }}</h1>
           <p>Distributor Management Suite</p>
         </div>
 
@@ -171,8 +172,11 @@ export class LoginComponent {
   password = '';
   loading = signal(false);
   error = signal('');
+  companySettings = inject(CompanySettingsService);
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(private authService: AuthService, private router: Router) {
+    this.companySettings.load();
+  }
 
   onLogin(): void {
     if (!this.username || !this.password) {

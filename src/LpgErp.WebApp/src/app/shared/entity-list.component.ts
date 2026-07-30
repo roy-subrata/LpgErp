@@ -437,6 +437,10 @@ export class EntityListComponent implements OnInit {
   /** Extra per-row action buttons; the parent handles them via (rowAction). */
   @Input() rowActions: RowAction[] = [];
 
+  /** Optional predicates gating the built-in Edit/Delete menu items — e.g. only Draft orders. Defaults to always-allowed. */
+  @Input() canEdit: (item: any) => boolean = () => true;
+  @Input() canDelete: (item: any) => boolean = () => true;
+
   @Output() rowClicked = new EventEmitter<any>();
   @Output() newRequested = new EventEmitter<void>();
   @Output() editRequested = new EventEmitter<any>();
@@ -637,20 +641,22 @@ export class EntityListComponent implements OnInit {
       }
     }
     items.push({ label: 'View', icon: '→' });
-    items.push({ label: 'Edit', icon: '✎' });
-    items.push({ label: 'Delete', icon: '🗑', danger: true });
+    if (this.canEdit(item)) items.push({ label: 'Edit', icon: '✎' });
+    if (this.canDelete(item)) items.push({ label: 'Delete', icon: '🗑', danger: true });
     return items;
   }
 
   onMenuAction(index: number, item: any) {
     const customCount = this.rowActions.filter(a => !a.show || a.show(item)).length;
+    const editIncluded = this.canEdit(item);
+    const deleteIncluded = this.canDelete(item);
     if (index < customCount) {
       this.rowAction.emit({ key: this.rowActions[index].key, item });
     } else if (index === customCount) {
       this.openView(item);
-    } else if (index === customCount + 1) {
+    } else if (editIncluded && index === customCount + 1) {
       this.openEdit(item);
-    } else {
+    } else if (deleteIncluded) {
       this.onDelete(item);
     }
   }

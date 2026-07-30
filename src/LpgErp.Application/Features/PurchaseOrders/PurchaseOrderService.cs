@@ -93,36 +93,63 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (await BuildLeakagesAsync(order, request.Leakages, cancellationToken) is string leakageError)
             return Result<PurchaseOrderDto>.Failure(leakageError);
 
-        var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
-        if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
-        if (ApplyCommission(order, supplier, request.CommissionCreditApplied) is string commissionError)
-            return Result<PurchaseOrderDto>.Failure(commissionError);
-
-        // Anything paid to the supplier up front is recorded with the order in the same save, so
-        // the outbound side carries the same "how was this paid" detail as the customer side.
-        if (request.Payment is { Amount: > 0 } paymentRequest)
+        // Transactional from here: the supplier's commission balance is read, validated against, and
+        // decremented in one request, and two concurrent orders against the same supplier must not
+        // both pass validation against the same starting balance (the same TOCTOU class fixed
+        // elsewhere for the cylinder ledger — see CustomerCylinderLedgerService.AdjustBalanceAsync).
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var payable = order.NetPayable;
-            if (paymentRequest.Amount > payable)
-                return Result<PurchaseOrderDto>.Failure($"Payment ({paymentRequest.Amount:N2}) exceeds the amount payable ({payable:N2}).");
-
-            if (await PaymentAccountRules.ValidateAsync(_context, paymentRequest.PaymentAccountId, paymentRequest.Method, cancellationToken) is string accountError)
-                return Result<PurchaseOrderDto>.Failure(accountError);
-
-            order.Payments.Add(new Payment
+            var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
+            if (supplier is null)
             {
-                Method = paymentRequest.Method,
-                PaymentAccountId = paymentRequest.PaymentAccountId,
-                Direction = PaymentDirection.Outbound,
-                Amount = paymentRequest.Amount,
-                PaymentDate = order.OrderDate ?? DateTime.UtcNow,
-                Reference = paymentRequest.Reference,
-                Notes = "Paid at order entry."
-            });
-        }
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<PurchaseOrderDto>.Failure("Supplier not found.");
+            }
+            if (ApplyCommission(order, supplier, request.CommissionCreditApplied) is string commissionError)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<PurchaseOrderDto>.Failure(commissionError);
+            }
 
-        await _context.PurchaseOrders.AddAsync(order, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            // Anything paid to the supplier up front is recorded with the order in the same save, so
+            // the outbound side carries the same "how was this paid" detail as the customer side.
+            if (request.Payment is { Amount: > 0 } paymentRequest)
+            {
+                var payable = order.NetPayable;
+                if (paymentRequest.Amount > payable)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result<PurchaseOrderDto>.Failure($"Payment ({paymentRequest.Amount:N2}) exceeds the amount payable ({payable:N2}).");
+                }
+
+                if (await PaymentAccountRules.ValidateAsync(_context, paymentRequest.PaymentAccountId, paymentRequest.Method, cancellationToken) is string accountError)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result<PurchaseOrderDto>.Failure(accountError);
+                }
+
+                order.Payments.Add(new Payment
+                {
+                    Method = paymentRequest.Method,
+                    PaymentAccountId = paymentRequest.PaymentAccountId,
+                    Direction = PaymentDirection.Outbound,
+                    Amount = paymentRequest.Amount,
+                    PaymentDate = order.OrderDate ?? DateTime.UtcNow,
+                    Reference = paymentRequest.Reference,
+                    Notes = "Paid at order entry."
+                });
+            }
+
+            await _context.PurchaseOrders.AddAsync(order, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         return await GetByIdAsync(order.Id, cancellationToken);
     }
@@ -137,14 +164,6 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (entity is null) return Result<PurchaseOrderDto>.Failure("Purchase order not found.");
         if (entity.Status != PurchaseOrderStatus.Draft)
             return Result<PurchaseOrderDto>.Failure("Only draft orders can be updated.");
-
-        // Refund any commission previously applied to the original supplier before the order is re-priced/re-assigned.
-        if (entity.CommissionApplied > 0)
-        {
-            var originalSupplier = await _context.Suppliers.FindAsync([entity.SupplierId], cancellationToken);
-            if (originalSupplier is not null) originalSupplier.CommissionBalance += entity.CommissionApplied;
-            entity.CommissionApplied = 0;
-        }
 
         entity.SupplierId = request.SupplierId;
         entity.WarehouseId = request.WarehouseId;
@@ -171,12 +190,40 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (await BuildLeakagesAsync(entity, request.Leakages, cancellationToken) is string leakageError)
             return Result<PurchaseOrderDto>.Failure(leakageError);
 
-        var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
-        if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
-        if (ApplyCommission(entity, supplier, request.CommissionCreditApplied) is string commissionError)
-            return Result<PurchaseOrderDto>.Failure(commissionError);
+        // Transactional from here: refunding the old commission and applying the new amount must be
+        // read-checked-written against a supplier balance that cannot shift underneath a concurrent
+        // request — same TOCTOU class as CreateAsync above.
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Refund any commission previously applied to the original supplier before the order is re-priced/re-assigned.
+            if (entity.CommissionApplied > 0)
+            {
+                var originalSupplier = await _context.Suppliers.FindAsync([entity.SupplierId], cancellationToken);
+                if (originalSupplier is not null) originalSupplier.CommissionBalance += entity.CommissionApplied;
+                entity.CommissionApplied = 0;
+            }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
+            if (supplier is null)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<PurchaseOrderDto>.Failure("Supplier not found.");
+            }
+            if (ApplyCommission(entity, supplier, request.CommissionCreditApplied) is string commissionError)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<PurchaseOrderDto>.Failure(commissionError);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         return await GetByIdAsync(id, cancellationToken);
     }

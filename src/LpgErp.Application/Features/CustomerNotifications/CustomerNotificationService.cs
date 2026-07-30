@@ -130,7 +130,7 @@ public class CustomerNotificationService : ICustomerNotificationService
         var cylinderOutstanding = await _context.CustomerCylinderBalances
             .Where(b => !b.IsDeleted)
             .GroupBy(b => b.CustomerId)
-            .Select(g => new { g.Key, Outstanding = g.Sum(b => b.Received - b.Returned), LastChange = g.Max(b => b.UpdatedAt ?? b.CreatedAt) })
+            .Select(g => new { g.Key, Outstanding = g.Sum(b => b.Received - b.Returned - b.Forfeited), LastChange = g.Max(b => b.UpdatedAt ?? b.CreatedAt) })
             .ToDictionaryAsync(x => x.Key, x => new { x.Outstanding, x.LastChange }, ct);
 
         var lastRefillDates = await _context.SalesOrderItems

@@ -295,6 +295,15 @@ export interface SupplierOrder {
   isOverdue: boolean;
 }
 
+export interface CompanySettings {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+}
+
 /** The optional "how was this paid" block sent with a new sales or purchase order. */
 export interface OrderPayment {
   amount: number;
@@ -532,6 +541,7 @@ export interface CustomerCylinderBalance {
   cylinderSizeName: string;
   received: number;
   returned: number;
+  forfeited: number;
   outstanding: number;
 }
 

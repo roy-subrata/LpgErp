@@ -35,9 +35,9 @@ public class CylinderLedgerFlowTests
 
     private SalesOrderService SalesSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c), _mapper, new NullNotificationService());
     private AdvanceRefillService AdvanceSvc(LpgErpDbContext c) => new(c, SalesSvc(c), _mapper);
-    private CustomerCylinderLedgerService LedgerSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c), _mapper);
+    private CustomerCylinderLedgerService LedgerSvc(LpgErpDbContext c) => new(c, new UnitOfWork(c), SalesSvc(c), _mapper);
 
-    private Guid _customerId, _warehouseId, _brandId, _sizeId, _refillId, _packageId;
+    private Guid _customerId, _warehouseId, _brandId, _sizeId, _refillId, _packageId, _emptyId;
 
     private async Task SeedAsync(int stock = 100)
     {
@@ -52,14 +52,16 @@ public class CylinderLedgerFlowTests
         var warehouse = new Warehouse { Name = "Main" };
         var refill = new Product { Name = "12KG Refill", Type = ProductType.GasRefill, BrandId = brand.Id, CylinderSizeId = size.Id, SalePrice = 1500m, CurrentStock = stock };
         var package = new Product { Name = "12KG Package", Type = ProductType.NewPackage, BrandId = brand.Id, CylinderSizeId = size.Id, SalePrice = 4500m, CurrentStock = stock };
+        var empty = new Product { Name = "12KG Empty Cylinder", Type = ProductType.EmptyCylinder, BrandId = brand.Id, CylinderSizeId = size.Id, SalePrice = 2000m, CurrentStock = stock };
         context.Customers.Add(customer);
         context.Warehouses.Add(warehouse);
-        context.Products.AddRange(refill, package);
+        context.Products.AddRange(refill, package, empty);
         await context.SaveChangesAsync();
 
         context.StockLevels.AddRange(
             new StockLevel { WarehouseId = warehouse.Id, ProductId = refill.Id, Quantity = stock },
-            new StockLevel { WarehouseId = warehouse.Id, ProductId = package.Id, Quantity = stock });
+            new StockLevel { WarehouseId = warehouse.Id, ProductId = package.Id, Quantity = stock },
+            new StockLevel { WarehouseId = warehouse.Id, ProductId = empty.Id, Quantity = stock });
         await context.SaveChangesAsync();
 
         _customerId = customer.Id;
@@ -68,6 +70,7 @@ public class CylinderLedgerFlowTests
         _sizeId = size.Id;
         _refillId = refill.Id;
         _packageId = package.Id;
+        _emptyId = empty.Id;
     }
 
     private async Task<Guid> SellAsync(Guid productId, int qty, int? emptiesReturned, bool credit = false)
@@ -235,5 +238,114 @@ public class CylinderLedgerFlowTests
 
         result.IsSuccess.Should().BeFalse();
         (await c.Payments.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Forfeit_ChargesCustomer_SettlesOutstanding_LeavesWarehouseStockUnchanged()
+    {
+        await SeedAsync(stock: 20);
+        await SellAsync(_refillId, 5, emptiesReturned: 0, credit: true); // 5 outstanding
+
+        using (var c = NewContext())
+        {
+            var result = await LedgerSvc(c).ForfeitAsync(new ForfeitCylinderRequest
+            {
+                CustomerId = _customerId, BrandId = _brandId, CylinderSizeId = _sizeId,
+                WarehouseId = _warehouseId, Quantity = 3, UnitPrice = 2000m, IsCreditSale = false,
+            });
+            result.IsSuccess.Should().BeTrue(result.Error);
+            result.Data!.Balance.Forfeited.Should().Be(3);
+            result.Data.Balance.Outstanding.Should().Be(2); // 5 received - 0 returned - 3 forfeited
+        }
+
+        var balance = await BalanceAsync();
+        balance!.Returned.Should().Be(0); // forfeited, not physically returned
+        balance.Forfeited.Should().Be(3);
+
+        using var check = NewContext();
+        var forfeitOrder = await check.SalesOrders.SingleAsync(o => o.Notes!.Contains("forfeit"));
+        forfeitOrder.TotalAmount.Should().Be(6000m); // 3 x 2000
+        forfeitOrder.IsCreditSale.Should().BeFalse();
+        (await check.Payments.SingleAsync(p => p.SalesOrderId == forfeitOrder.Id)).Amount.Should().Be(6000m);
+
+        // Delivery deducts 3 from empty-cylinder stock as a normal sale would; the forfeit correction
+        // adds it straight back, since no cylinder actually left the warehouse just now.
+        (await check.StockLevels.FirstAsync(s => s.ProductId == _emptyId)).Quantity.Should().Be(20);
+        (await check.Products.FindAsync(_emptyId))!.CurrentStock.Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Forfeit_OnCredit_CreatesReceivable_NoImmediatePayment()
+    {
+        await SeedAsync();
+        await SellAsync(_refillId, 4, emptiesReturned: 0, credit: true);
+
+        using var c = NewContext();
+        var result = await LedgerSvc(c).ForfeitAsync(new ForfeitCylinderRequest
+        {
+            CustomerId = _customerId, BrandId = _brandId, CylinderSizeId = _sizeId,
+            WarehouseId = _warehouseId, Quantity = 4, UnitPrice = 2000m, IsCreditSale = true,
+        });
+        result.IsSuccess.Should().BeTrue(result.Error);
+
+        using var check = NewContext();
+        var forfeitOrder = await check.SalesOrders.SingleAsync(o => o.Id == result.Data!.SalesOrderId);
+        forfeitOrder.IsCreditSale.Should().BeTrue();
+        forfeitOrder.DueDate.Should().NotBeNull();
+        (await check.Payments.AnyAsync(p => p.SalesOrderId == forfeitOrder.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Forfeit_ExceedingOutstanding_Rejected_NoOrderCreated()
+    {
+        await SeedAsync();
+        await SellAsync(_refillId, 2, emptiesReturned: 0, credit: true); // 2 outstanding
+
+        using var c = NewContext();
+        var result = await LedgerSvc(c).ForfeitAsync(new ForfeitCylinderRequest
+        {
+            CustomerId = _customerId, BrandId = _brandId, CylinderSizeId = _sizeId,
+            WarehouseId = _warehouseId, Quantity = 5, UnitPrice = 2000m, IsCreditSale = true,
+        });
+
+        result.IsSuccess.Should().BeFalse();
+        (await c.SalesOrders.CountAsync(o => o.Notes!.Contains("forfeit"))).Should().Be(0);
+        (await BalanceAsync())!.Forfeited.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Forfeit_WithoutEmptyCylinderProduct_Rejected()
+    {
+        using var context = NewContext();
+        var brand = new Brand { Name = "NoEmptyBrand" };
+        var size = new CylinderSize { Name = "5 KG" };
+        var customer = new Customer { Name = "Test Customer", PaymentDueDays = 30 };
+        var warehouse = new Warehouse { Name = "Main2" };
+        var refill = new Product { Name = "5KG Refill", Type = ProductType.GasRefill, BrandId = brand.Id, CylinderSizeId = size.Id, SalePrice = 800m, CurrentStock = 20 };
+        context.AddRange(brand, size, customer, warehouse, refill);
+        await context.SaveChangesAsync();
+        context.StockLevels.Add(new StockLevel { WarehouseId = warehouse.Id, ProductId = refill.Id, Quantity = 20 });
+        await context.SaveChangesAsync();
+
+        using (var c = NewContext())
+        {
+            var svc = SalesSvc(c);
+            var created = await svc.CreateAsync(new CreateSalesOrderRequest
+            {
+                CustomerId = customer.Id, WarehouseId = warehouse.Id, IsCreditSale = true,
+                Items = [new CreateSalesOrderItemRequest { ProductId = refill.Id, Quantity = 2, UnitPrice = 800m, EmptyReturnedQuantity = 0 }]
+            });
+            await svc.ConfirmAsync(created.Data!.Id);
+            await svc.DeliverAsync(created.Data.Id);
+        }
+
+        using var check = NewContext();
+        var result = await LedgerSvc(check).ForfeitAsync(new ForfeitCylinderRequest
+        {
+            CustomerId = customer.Id, BrandId = brand.Id, CylinderSizeId = size.Id,
+            WarehouseId = warehouse.Id, Quantity = 2, UnitPrice = 500m, IsCreditSale = true,
+        });
+
+        result.IsSuccess.Should().BeFalse();
     }
 }

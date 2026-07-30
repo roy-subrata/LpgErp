@@ -10,5 +10,12 @@ public class CustomerCylinderBalance : BaseEntity
     public CylinderSize CylinderSize { get; set; } = null!;
     public int Received { get; set; }
     public int Returned { get; set; }
-    public int Outstanding => Received - Returned;
+
+    /// <summary>
+    /// Cylinders the customer kept permanently and paid for instead of returning — settled, but
+    /// distinct from a physical return, so reporting can still tell the two apart.
+    /// </summary>
+    public int Forfeited { get; set; }
+
+    public int Outstanding => Received - Returned - Forfeited;
 }

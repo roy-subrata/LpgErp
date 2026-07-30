@@ -47,6 +47,7 @@ public interface IApplicationDbContext
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<SystemNotification> SystemNotifications { get; }
+    DbSet<CompanySettings> CompanySettings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

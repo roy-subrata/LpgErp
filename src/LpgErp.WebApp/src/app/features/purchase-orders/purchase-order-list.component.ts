@@ -15,6 +15,8 @@ import { PurchaseOrderFormComponent } from './purchase-order-form.component';
       [searchFields]="searchFields"
       [useCustomForm]="true"
       [rowActions]="rowActions"
+      [canEdit]="isDraft"
+      [canDelete]="isDraft"
       [reloadSignal]="reloadTick()"
       (newRequested)="openForm(null)"
       (editRequested)="openForm($event.id)"
@@ -35,6 +37,11 @@ export class PurchaseOrderListComponent {
   formOpen = signal(false);
   editId = signal<string | null>(null);
   reloadTick = signal(0);
+
+  // Only a draft order can still be edited or deleted server-side (PurchaseOrderService.UpdateAsync
+  // / DeleteAsync reject anything past Draft) — hide those menu items once that's no longer true,
+  // instead of letting the user open the form and hit a rejection on submit.
+  readonly isDraft = (po: any) => po.status === 0;
 
   // Status: 0 Draft, 1 Confirmed, 2 InTransit, 3 PartiallyReceived, 4 Received, 5 Cancelled.
   // "Confirm" moves a draft on; "Receive" opens the dedicated Goods Receipt page — receiving is

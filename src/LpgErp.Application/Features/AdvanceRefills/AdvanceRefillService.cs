@@ -98,7 +98,7 @@ public class AdvanceRefillService : IAdvanceRefillService
             .Include(b => b.Customer)
             .Include(b => b.Brand)
             .Include(b => b.CylinderSize)
-            .Where(b => (b.Received - b.Returned) > 0)
+            .Where(b => (b.Received - b.Returned - b.Forfeited) > 0)
             .ToListAsync(cancellationToken);
 
         return Result<IReadOnlyList<OutstandingCylinderDto>>.Success(
@@ -111,7 +111,7 @@ public class AdvanceRefillService : IAdvanceRefillService
             .Include(b => b.Customer)
             .Include(b => b.Brand)
             .Include(b => b.CylinderSize)
-            .Where(b => b.CustomerId == customerId && (b.Received - b.Returned) > 0)
+            .Where(b => b.CustomerId == customerId && (b.Received - b.Returned - b.Forfeited) > 0)
             .ToListAsync(cancellationToken);
 
         return Result<IReadOnlyList<AdvanceRefillDto>>.Success(

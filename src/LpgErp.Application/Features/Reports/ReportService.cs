@@ -1,5 +1,6 @@
 ﻿using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using LpgErp.Application.Features.CustomerAccount;
 using LpgErp.Application.Features.Reports.DTOs;
 using LpgErp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -36,8 +37,13 @@ public interface IReportService
 public class ReportService : IReportService
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICustomerAccountService _customerAccountService;
 
-    public ReportService(IApplicationDbContext context) { _context = context; }
+    public ReportService(IApplicationDbContext context, ICustomerAccountService customerAccountService)
+    {
+        _context = context;
+        _customerAccountService = customerAccountService;
+    }
 
     /// <summary>
     /// Revenue is recognised when goods leave, so every money figure below counts delivered orders only.
@@ -244,28 +250,28 @@ public class ReportService : IReportService
         return Result<IReadOnlyList<PurchaseReportDto>>.Success(report);
     }
 
+    /// <summary>
+    /// Sources outstanding balance from CustomerAccountService — the single place that answers what a
+    /// customer owes — rather than re-deriving it here. A separate, looser re-derivation (Delivered-only,
+    /// missing the Confirmed credit-sale case) previously let this screen and the Customer Account page
+    /// disagree on the same customer's balance.
+    /// </summary>
     public async Task<Result<IReadOnlyList<CustomerReportDto>>> GetCustomerReportAsync(CancellationToken ct = default)
     {
-        var customers = await _context.Customers.Where(c => !c.IsDeleted).ToListAsync(ct);
-        var report = new List<CustomerReportDto>();
+        var summariesResult = await _customerAccountService.GetAllSummariesAsync(ct);
+        if (!summariesResult.IsSuccess)
+            return Result<IReadOnlyList<CustomerReportDto>>.Failure(summariesResult.Error!);
 
-        foreach (var customer in customers)
+        var report = summariesResult.Data!.Select(s => new CustomerReportDto
         {
-            var totalPurchases = await _context.SalesOrders.Where(so => so.CustomerId == customer.Id && !so.IsDeleted && so.Status == RecognisedStatus).SumAsync(so => so.TotalAmount - so.Discount, ct);
-            var totalPayments = await _context.Payments.Where(p => p.SalesOrderId != null && !p.IsDeleted && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id && !so.IsDeleted && so.Status == RecognisedStatus)).SumAsync(p => p.Amount, ct);
-            var cylinderBalance = await _context.CustomerCylinderBalances.Where(c => c.CustomerId == customer.Id && !c.IsDeleted).SumAsync(c => c.Received - c.Returned, ct);
-
-            report.Add(new CustomerReportDto
-            {
-                CustomerName = customer.Name,
-                CustomerCode = customer.Code ?? "",
-                CreditLimit = customer.CreditLimit,
-                TotalPurchases = totalPurchases,
-                TotalPayments = totalPayments,
-                OutstandingBalance = totalPurchases - totalPayments,
-                CylinderBalance = cylinderBalance
-            });
-        }
+            CustomerName = s.CustomerName,
+            CustomerCode = "",
+            CreditLimit = s.CreditLimit,
+            TotalPurchases = s.TotalBilled,
+            TotalPayments = s.TotalPaid,
+            OutstandingBalance = s.OutstandingDue,
+            CylinderBalance = s.CylindersHeld,
+        }).ToList();
 
         return Result<IReadOnlyList<CustomerReportDto>>.Success(report);
     }
@@ -303,14 +309,15 @@ public class ReportService : IReportService
         // Cash actually collected in the period, whatever it was against — this is the cash-flow figure.
         var payments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
 
-        // Receivable must net over the same population as the revenue above: money taken against orders
-        // that have not been delivered is not a receivable, and subtracting it from delivered sales drives
-        // the balance negative.
-        var paymentsOnRecognisedSales = await _context.Payments
-            .Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound && p.SalesOrderId != null
-                && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && !so.IsDeleted
-                    && so.Status == RecognisedStatus && so.OrderDate >= from && so.OrderDate <= to))
-            .SumAsync(p => p.Amount, ct);
+        // Accounts receivable is a balance-sheet snapshot of what customers owe right now, not a figure
+        // scoped to this period's sales — a customer who bought last month and still hasn't paid is just
+        // as much a receivable today. Sourced from CustomerAccountService (see GetCustomerReportAsync)
+        // rather than re-derived, so this and the Customer Account page can't disagree.
+        var customerSummaries = await _customerAccountService.GetAllSummariesAsync(ct);
+        var accountsReceivable = customerSummaries.IsSuccess
+            ? customerSummaries.Data!.Sum(s => s.OutstandingDue)
+            : 0m;
+
         var purchases = await _context.PurchaseOrders.Where(po => !po.IsDeleted && po.OrderDate >= from && po.OrderDate <= to).SumAsync(po => po.TotalAmount, ct);
         var purchasePayments = await _context.Payments.Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Outbound && p.PaymentDate >= from && p.PaymentDate <= to).SumAsync(p => p.Amount, ct);
 
@@ -342,7 +349,7 @@ public class ReportService : IReportService
             TotalPayments = payments,
             TotalPurchases = purchases,
             TotalPurchasePayments = purchasePayments,
-            AccountsReceivable = sales - paymentsOnRecognisedSales,
+            AccountsReceivable = accountsReceivable,
             SupplierPayable = purchases - purchasePayments,
             TransportationExpenses = transportExpenses,
             OperatingExpenses = operatingExpenses,

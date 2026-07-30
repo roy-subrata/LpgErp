@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -10,6 +10,9 @@ interface ReceiveLine {
   productType: number;
   orderedQuantity: number;
   alreadyReceived: number;
+  alreadyDamaged: number;
+  alreadyMissing: number;
+  shortQuantity: number;
   receivedQuantity: number;
   damagedQuantity: number;
   missingQuantity: number;
@@ -42,7 +45,7 @@ interface LeakageLine {
     <div class="page-header">
       <div>
         <a routerLink="/goods-receipt" class="back-link">← Goods Receipt</a>
-        <h1 class="page-title">Receive — {{ orderNumber() }}</h1>
+        <h1 class="page-title">{{ isReceived() ? 'Goods Receipt — ' : 'Receive — ' }}{{ orderNumber() }}</h1>
         <span class="page-sub">{{ supplierName() }}{{ warehouseName() ? ' · ' + warehouseName() : '' }}</span>
       </div>
     </div>
@@ -50,45 +53,84 @@ interface LeakageLine {
     @if (loading()) {
       <div class="state-note">Loading…</div>
     } @else if (notFound()) {
-      <div class="state-note error">This order could not be found, or has already been fully received.</div>
+      <div class="state-note error">This order could not be found.</div>
     } @else {
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">Order Date</span><span class="info-value">{{ orderDate() ? (orderDate() | date:'dd MMM yyyy') : '—' }}</span></div>
+        <div class="info-item"><span class="info-label">Expected Delivery</span><span class="info-value">{{ expectedDeliveryDate() ? (expectedDeliveryDate() | date:'dd MMM yyyy') : '—' }}</span></div>
+        <div class="info-item"><span class="info-label">Due Date</span><span class="info-value">{{ dueDate() ? (dueDate() | date:'dd MMM yyyy') : '—' }}</span></div>
+        <div class="info-item"><span class="info-label">Transport Company</span><span class="info-value">{{ transportCompanyName() || '—' }}</span></div>
+        <div class="info-item"><span class="info-label">Transportation Cost</span><span class="info-value">৳ {{ transportationCost() | number:'1.0-0' }}</span></div>
+        <div class="info-item"><span class="info-label">Status</span><span class="info-value">{{ statusLabel() }}</span></div>
+      </div>
+
       <div class="form-card">
-        <p class="hint">Enter the quantities physically received, plus any damaged or missing (short) units. Only good (received − damaged) units are added to warehouse stock.</p>
-        <p class="hint">Leave <strong>Empties Out</strong> blank to send one empty cylinder per refill received — the normal swap. Enter a smaller number if you sent fewer; the rest stays owed to the company.</p>
+        @if (isReceived()) {
+          <p class="hint">This order has been fully received. Quantities below are what actually arrived.</p>
+        } @else {
+          <p class="hint">Enter the quantities physically received, plus any damaged or missing (short) units. Only good (received − damaged) units are added to warehouse stock.</p>
+          <p class="hint">Leave <strong>Empties Out</strong> blank to send one empty cylinder per refill received — the normal swap. Enter a smaller number if you sent fewer; the rest stays owed to the company.</p>
+        }
 
         <div class="table-wrap">
           <table class="receive-table">
             <thead>
-              <tr>
-                <th class="left">Product</th>
-                <th>Ordered</th>
-                <th>Recv'd</th>
-                <th>Outstanding</th>
-                <th>Receive</th>
-                <th>Damaged</th>
-                <th>Missing</th>
-                <th title="Empty cylinders handed back to the company">Empties Out</th>
-              </tr>
+              @if (isReceived()) {
+                <tr>
+                  <th class="left">Product</th>
+                  <th>Ordered</th>
+                  <th>Received</th>
+                  <th>Damaged</th>
+                  <th>Missing</th>
+                  <th>Short</th>
+                  <th title="Empty cylinders handed back to the company">Empties Out</th>
+                </tr>
+              } @else {
+                <tr>
+                  <th class="left">Product</th>
+                  <th>Ordered</th>
+                  <th>Recv'd</th>
+                  <th>Outstanding</th>
+                  <th>Receive</th>
+                  <th>Damaged</th>
+                  <th>Missing</th>
+                  <th title="Empty cylinders handed back to the company">Empties Out</th>
+                </tr>
+              }
             </thead>
             <tbody>
-              @for (line of lines(); track line.productId) {
-                <tr>
-                  <td class="left">{{ line.productName }}</td>
-                  <td>{{ line.orderedQuantity }}</td>
-                  <td>{{ line.alreadyReceived }}</td>
-                  <td>{{ outstanding(line) }}</td>
-                  <td><input type="number" min="0" [(ngModel)]="line.receivedQuantity" [name]="'recv_' + line.productId" /></td>
-                  <td><input type="number" min="0" [(ngModel)]="line.damagedQuantity" [name]="'dmg_' + line.productId" /></td>
-                  <td><input type="number" min="0" [(ngModel)]="line.missingQuantity" [name]="'miss_' + line.productId" /></td>
-                  <td>
-                    @if (line.productType === 1) {
-                      <input type="number" min="0" [placeholder]="line.receivedQuantity || '='"
-                             [(ngModel)]="line.emptySentQuantity" [name]="'empty_' + line.productId" />
-                    } @else {
-                      <span class="na">—</span>
-                    }
-                  </td>
-                </tr>
+              @if (isReceived()) {
+                @for (line of lines(); track line.productId) {
+                  <tr>
+                    <td class="left">{{ line.productName }}</td>
+                    <td>{{ line.orderedQuantity }}</td>
+                    <td>{{ line.alreadyReceived }}</td>
+                    <td>{{ line.alreadyDamaged }}</td>
+                    <td>{{ line.alreadyMissing }}</td>
+                    <td>{{ line.shortQuantity }}</td>
+                    <td>{{ line.productType === 1 ? line.emptyAlreadySent : '—' }}</td>
+                  </tr>
+                }
+              } @else {
+                @for (line of lines(); track line.productId) {
+                  <tr>
+                    <td class="left">{{ line.productName }}</td>
+                    <td>{{ line.orderedQuantity }}</td>
+                    <td>{{ line.alreadyReceived }}</td>
+                    <td>{{ outstanding(line) }}</td>
+                    <td><input type="number" min="0" [(ngModel)]="line.receivedQuantity" [name]="'recv_' + line.productId" /></td>
+                    <td><input type="number" min="0" [(ngModel)]="line.damagedQuantity" [name]="'dmg_' + line.productId" /></td>
+                    <td><input type="number" min="0" [(ngModel)]="line.missingQuantity" [name]="'miss_' + line.productId" /></td>
+                    <td>
+                      @if (line.productType === 1) {
+                        <input type="number" min="0" [placeholder]="line.receivedQuantity || '='"
+                               [(ngModel)]="line.emptySentQuantity" [name]="'empty_' + line.productId" />
+                      } @else {
+                        <span class="na">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -104,7 +146,7 @@ interface LeakageLine {
                   <th>Returned</th>
                   <th>Settled</th>
                   <th class="left">Company gives</th>
-                  <th>Settle now</th>
+                  @if (!isReceived()) { <th>Settle now</th> }
                 </tr>
               </thead>
               <tbody>
@@ -114,7 +156,9 @@ interface LeakageLine {
                     <td>{{ leak.quantity }}</td>
                     <td>{{ leak.alreadySettled }}</td>
                     <td class="left">{{ resolutionLabel(leak) }}</td>
-                    <td><input type="number" min="0" [(ngModel)]="leak.settledQuantity" [name]="'leak_' + leak.id" /></td>
+                    @if (!isReceived()) {
+                      <td><input type="number" min="0" [(ngModel)]="leak.settledQuantity" [name]="'leak_' + leak.id" /></td>
+                    }
                   </tr>
                 }
               </tbody>
@@ -125,10 +169,14 @@ interface LeakageLine {
         @if (error()) { <p class="error">{{ error() }}</p> }
 
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
-          <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="submit()">
-            {{ saving() ? 'Receiving...' : 'Confirm Receipt' }}
-          </button>
+          @if (isReceived()) {
+            <button type="button" class="btn btn-secondary" (click)="cancel()">← Back</button>
+          } @else {
+            <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
+            <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="submit()">
+              {{ saving() ? 'Receiving...' : 'Confirm Receipt' }}
+            </button>
+          }
         </div>
       </div>
     }
@@ -141,6 +189,12 @@ interface LeakageLine {
     .page-sub { font-size: 12px; color: var(--text-muted); }
     .state-note { padding: 24px; color: #6b7280; }
     .state-note.error { color: #b91c1c; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 16px; }
+    .info-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .info-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .info-value { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    @media (max-width: 1200px) { .info-grid { grid-template-columns: repeat(3, 1fr); } }
 
     .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 20px; }
     .hint { font-size: 0.85rem; color: #6b7280; margin: 0 0 1rem; }
@@ -168,12 +222,26 @@ export class GoodsReceiptFormComponent implements OnInit {
   orderNumber = signal('');
   supplierName = signal('');
   warehouseName = signal('');
+  orderDate = signal<string | null>(null);
+  expectedDeliveryDate = signal<string | null>(null);
+  dueDate = signal<string | null>(null);
+  transportCompanyName = signal('');
+  transportationCost = signal(0);
+  status = signal(0);
   lines = signal<ReceiveLine[]>([]);
   leakages = signal<LeakageLine[]>([]);
   loading = signal(true);
   notFound = signal(false);
   saving = signal(false);
   error = signal('');
+
+  /** Matches PurchaseOrderStatus.Received — nothing left to do but look at what came in. */
+  isReceived = computed(() => this.status() === 4);
+
+  readonly statusNames: Record<number, string> = {
+    0: 'Draft', 1: 'Confirmed', 2: 'In Transit', 3: 'Partially Received', 4: 'Received', 5: 'Cancelled',
+  };
+  statusLabel = computed(() => this.statusNames[this.status()] ?? '—');
 
   ngOnInit() {
     this.orderId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -188,12 +256,21 @@ export class GoodsReceiptFormComponent implements OnInit {
         this.orderNumber.set(po.orderNumber ?? '');
         this.supplierName.set(po.supplierName ?? '');
         this.warehouseName.set(po.warehouseName ?? '');
+        this.orderDate.set(po.orderDate ?? null);
+        this.expectedDeliveryDate.set(po.expectedDeliveryDate ?? null);
+        this.dueDate.set(po.dueDate ?? null);
+        this.transportCompanyName.set(po.transportCompanyName ?? '');
+        this.transportationCost.set(po.transportationCost ?? 0);
+        this.status.set(po.status ?? 0);
         this.lines.set((po.items ?? []).map((i: any) => ({
           productId: i.productId,
           productName: i.productName ?? i.productId,
           productType: i.productType ?? 0,
           orderedQuantity: i.orderedQuantity ?? 0,
           alreadyReceived: i.receivedQuantity ?? 0,
+          alreadyDamaged: i.damagedQuantity ?? 0,
+          alreadyMissing: i.missingQuantity ?? 0,
+          shortQuantity: i.shortQuantity ?? 0,
           receivedQuantity: 0,
           damagedQuantity: 0,
           missingQuantity: 0,

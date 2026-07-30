@@ -16,6 +16,8 @@ interface ReceivablePurchaseOrder {
   status: number;
 }
 
+type ReceiptTab = 'awaiting' | 'received';
+
 /**
  * Goods Receipt — its own feature, separate from the Purchase Orders list, the same way
  * delivering a sale is separate from placing it. Previously "Receive goods" was a dialog opened
@@ -31,17 +33,21 @@ interface ReceivablePurchaseOrder {
     <div class="page-header">
       <div>
         <h1 class="page-title">Goods Receipt</h1>
-        <span class="page-sub">Purchase orders waiting to be received into stock</span>
+        <span class="page-sub">Purchase orders awaiting receipt, and what's already come in</span>
       </div>
     </div>
 
     <div class="table-card">
       <div class="table-toolbar">
+        <div class="tab-group">
+          <button class="tab-btn" [class.active]="tab() === 'awaiting'" (click)="tab.set('awaiting')">Awaiting Receipt</button>
+          <button class="tab-btn" [class.active]="tab() === 'received'" (click)="tab.set('received')">Received</button>
+        </div>
         <div class="search-box">
           <input type="text" class="search-input" placeholder="Search order, supplier..."
                  [ngModel]="query()" (ngModelChange)="query.set($event)" />
         </div>
-        <span class="result-count">{{ filteredItems().length }} awaiting receipt</span>
+        <span class="result-count">{{ filteredItems().length }} {{ tab() === 'awaiting' ? 'awaiting receipt' : 'received' }}</span>
       </div>
 
       <div class="table-scroll">
@@ -73,11 +79,15 @@ interface ReceivablePurchaseOrder {
                   </span>
                 </td>
                 <td class="actions-col">
-                  <button class="btn-receive" (click)="openReceive(po); $event.stopPropagation()">Receive →</button>
+                  <button class="btn-receive" (click)="openReceive(po); $event.stopPropagation()">
+                    {{ po.status === 4 ? 'View →' : 'Receive →' }}
+                  </button>
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="8" class="empty-row">Nothing waiting to be received — every confirmed order is fully in stock.</td></tr>
+              <tr><td colspan="8" class="empty-row">
+                {{ tab() === 'awaiting' ? 'Nothing waiting to be received — every confirmed order is fully in stock.' : 'No fully received orders yet.' }}
+              </td></tr>
             }
           </tbody>
         </table>
@@ -89,7 +99,11 @@ interface ReceivablePurchaseOrder {
     .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); margin: 0; }
     .page-sub { font-size: 12px; color: var(--text-muted); }
     .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
-    .table-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+    .table-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap; }
+    .tab-group { display: flex; gap: 4px; background: var(--fill-subtle); border-radius: 7px; padding: 3px; }
+    .tab-btn { padding: 5px 12px; border: none; border-radius: 5px; background: transparent; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+    .tab-btn.active { background: var(--surface); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+    .tab-btn:hover:not(.active) { color: var(--text-secondary); }
     .search-input { padding: 8px 12px; border: 1px solid var(--border-input); border-radius: 7px; font-size: 13px; width: 280px; }
     .result-count { font-size: 12px; color: var(--text-muted); }
     .table-scroll { overflow-x: auto; }
@@ -115,20 +129,26 @@ export class GoodsReceiptListComponent implements OnInit {
 
   items = signal<ReceivablePurchaseOrder[]>([]);
   query = signal('');
+  tab = signal<ReceiptTab>('awaiting');
 
   // Matches PurchaseOrderStatus.
   readonly statusBadge: Record<number, string[]> = {
     1: ['Confirmed', '#dbeafe', '#1d4ed8'],
     2: ['In Transit', '#e0e7ff', '#4338ca'],
     3: ['Partially Received', '#fef3c7', '#92400e'],
+    4: ['Received', '#dcfce7', '#166534'],
   };
 
   filteredItems = computed(() => {
+    const statuses = this.tab() === 'awaiting' ? [1, 2, 3] : [4];
+    let list = this.items().filter(po => statuses.includes(po.status));
     const q = this.query().toLowerCase();
-    if (!q) return this.items();
-    return this.items().filter(po =>
-      po.orderNumber.toLowerCase().includes(q) ||
-      po.supplierName.toLowerCase().includes(q));
+    if (q) {
+      list = list.filter(po =>
+        po.orderNumber.toLowerCase().includes(q) ||
+        po.supplierName.toLowerCase().includes(q));
+    }
+    return list;
   });
 
   ngOnInit() {
@@ -137,8 +157,9 @@ export class GoodsReceiptListComponent implements OnInit {
 
   load() {
     this.api.getAll<ReceivablePurchaseOrder>('purchaseorders', 1, 200).subscribe(data => {
-      // Confirmed, InTransit, PartiallyReceived — the same set the old row action was limited to.
-      this.items.set(data.items.filter(po => [1, 2, 3].includes(po.status)));
+      // Confirmed, InTransit, PartiallyReceived (awaiting) plus Received (viewable) — Draft hasn't
+      // been confirmed yet and Cancelled never will be, so neither belongs here.
+      this.items.set(data.items.filter(po => [1, 2, 3, 4].includes(po.status)));
     });
   }
 
