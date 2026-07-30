@@ -1,5 +1,7 @@
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using LpgErp.Application.Features.CustomerAccount;
+using LpgErp.Application.Features.CustomerAccount.DTOs;
 using LpgErp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,156 +14,77 @@ public interface ICustomerCreditService
     Task<Result<CreditAgingReportDto>> GetCreditAgingAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Credit limits and ageing, presented in the shape the existing screens expect. The balances
+/// themselves come from <see cref="ICustomerAccountService"/> so this cannot drift from the
+/// statement or the gas ledger the way three separate calculations did.
+/// </summary>
 public class CustomerCreditService : ICustomerCreditService
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICustomerAccountService _accounts;
 
-    public CustomerCreditService(IApplicationDbContext context)
+    public CustomerCreditService(IApplicationDbContext context, ICustomerAccountService accounts)
     {
         _context = context;
+        _accounts = accounts;
     }
 
     public async Task<Result<CustomerCreditSummaryDto>> GetCustomerCreditSummaryAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
-        var customer = await _context.Customers
-            .FirstOrDefaultAsync(c => c.Id == customerId && !c.IsDeleted, cancellationToken);
+        var summary = await _accounts.GetSummaryAsync(customerId, cancellationToken);
+        if (!summary.IsSuccess)
+            return Result<CustomerCreditSummaryDto>.Failure(summary.Error!);
 
-        if (customer is null)
-            return Result<CustomerCreditSummaryDto>.Failure("Customer not found.");
-
-        var summary = await BuildCreditSummaryAsync(customer, cancellationToken);
-        return Result<CustomerCreditSummaryDto>.Success(summary);
+        return Result<CustomerCreditSummaryDto>.Success(ToCreditSummary(summary.Data!));
     }
 
     public async Task<Result<IReadOnlyList<CustomerCreditSummaryDto>>> GetAllCreditSummariesAsync(CancellationToken cancellationToken = default)
     {
-        var customers = await _context.Customers
-            .Where(c => !c.IsDeleted)
-            .OrderBy(c => c.Name)
-            .ToListAsync(cancellationToken);
+        var summaries = await _accounts.GetAllSummariesAsync(cancellationToken);
+        if (!summaries.IsSuccess)
+            return Result<IReadOnlyList<CustomerCreditSummaryDto>>.Failure(summaries.Error!);
 
-        var summaries = new List<CustomerCreditSummaryDto>();
-        foreach (var customer in customers)
-        {
-            summaries.Add(await BuildCreditSummaryAsync(customer, cancellationToken));
-        }
-
-        return Result<IReadOnlyList<CustomerCreditSummaryDto>>.Success(summaries);
+        return Result<IReadOnlyList<CustomerCreditSummaryDto>>.Success(
+            summaries.Data!.Select(ToCreditSummary).ToList());
     }
+
+    private static CustomerCreditSummaryDto ToCreditSummary(CustomerAccountSummaryDto s) => new()
+    {
+        CustomerId = s.CustomerId,
+        CustomerName = s.CustomerName,
+        CreditLimit = s.CreditLimit,
+        TotalPurchases = s.TotalBilled,
+        TotalPayments = s.TotalPaid,
+        OutstandingBalance = s.OutstandingDue,
+        CreditUtilization = s.CreditUtilization,
+        IsOverCredit = s.IsOverCredit,
+    };
 
     public async Task<Result<CreditAgingReportDto>> GetCreditAgingAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
-        var customers = await _context.Customers
-            .Where(c => !c.IsDeleted)
-            .OrderBy(c => c.Name)
-            .ToListAsync(cancellationToken);
+        var aging = await _accounts.GetAgingAsync(cancellationToken);
+        if (!aging.IsSuccess)
+            return Result<CreditAgingReportDto>.Failure(aging.Error!);
 
-        var entries = new List<CreditAgingEntry>();
-
-        foreach (var customer in customers)
-        {
-            // Ageing is about overdue receivables, so it looks at delivered credit sales only —
-            // a cash sale creates no debt, and an undelivered order is not owed yet.
-            var salesOrders = await _context.SalesOrders
-                .Where(so => so.CustomerId == customer.Id && !so.IsDeleted
-                    && so.Status == SalesOrderStatus.Delivered && so.IsCreditSale)
-                .Include(so => so.Payments.Where(p => !p.IsDeleted))
-                .ToListAsync(cancellationToken);
-
-            var orderIds = salesOrders.Select(so => so.Id).ToList();
-
-            var payments = await _context.Payments
-                .Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound
-                    && p.SalesOrderId != null && orderIds.Contains(p.SalesOrderId.Value))
-                .ToListAsync(cancellationToken);
-
-            var totalPurchases = salesOrders.Sum(so => so.NetAmount);
-            var totalPayments = payments.Sum(p => p.Amount);
-            var outstanding = totalPurchases - totalPayments;
-
-            if (outstanding <= 0) continue;
-
-            var aged = new CreditAgingEntry
-            {
-                CustomerName = customer.Name,
-                Current = 0m,
-                Days30 = 0m,
-                Days60 = 0m,
-                Days90 = 0m,
-                DaysOver90 = 0m
-            };
-
-            foreach (var order in salesOrders)
-            {
-                var orderPayments = payments.Where(p => p.SalesOrderId == order.Id).Sum(p => p.Amount);
-                var orderBalance = order.NetAmount - orderPayments;
-                if (orderBalance <= 0) continue;
-
-                // Age from the due date when there is one — a 60-day-term invoice raised 40 days ago is
-                // not overdue at all. Each bucket now holds the days-overdue range its name claims;
-                // previously every bucket was shifted one column, so a 100-day-old debt read as "90 days".
-                var dueDate = order.DueDate ?? order.OrderDate;
-                var daysOverdue = (now - dueDate).Days;
-
-                if (daysOverdue <= 0)
-                    aged.Current += orderBalance;
-                else if (daysOverdue <= 30)
-                    aged.Days30 += orderBalance;
-                else if (daysOverdue <= 60)
-                    aged.Days60 += orderBalance;
-                else if (daysOverdue <= 90)
-                    aged.Days90 += orderBalance;
-                else
-                    aged.DaysOver90 += orderBalance;
-            }
-
-            entries.Add(aged);
-        }
-
+        var data = aging.Data!;
         return Result<CreditAgingReportDto>.Success(new CreditAgingReportDto
         {
-            Entries = entries,
-            TotalCurrent = entries.Sum(e => e.Current),
-            TotalDays30 = entries.Sum(e => e.Days30),
-            TotalDays60 = entries.Sum(e => e.Days60),
-            TotalDays90 = entries.Sum(e => e.Days90),
-            TotalDaysOver90 = entries.Sum(e => e.DaysOver90)
+            Entries = data.Entries.Select(e => new CreditAgingEntry
+            {
+                CustomerName = e.CustomerName,
+                Current = e.Current,
+                Days30 = e.Days30,
+                Days60 = e.Days60,
+                Days90 = e.Days90,
+                DaysOver90 = e.DaysOver90,
+            }).ToList(),
+            TotalCurrent = data.TotalCurrent,
+            TotalDays30 = data.TotalDays30,
+            TotalDays60 = data.TotalDays60,
+            TotalDays90 = data.TotalDays90,
+            TotalDaysOver90 = data.TotalDaysOver90,
         });
-    }
-
-    private async Task<CustomerCreditSummaryDto> BuildCreditSummaryAsync(Customer customer, CancellationToken cancellationToken)
-    {
-        // Sum the mapped columns, not the computed NetAmount — EF cannot translate an unmapped property.
-        // Delivered orders only: an undelivered order is not yet a debt the customer owes.
-        var totalPurchases = await _context.SalesOrders
-            .Where(so => so.CustomerId == customer.Id && !so.IsDeleted && so.Status == SalesOrderStatus.Delivered)
-            .SumAsync(so => so.TotalAmount - so.Discount, cancellationToken);
-
-        // Scoped to the same delivered orders as the purchases above, so the balance cannot go negative
-        // just because money was taken against an order that has not shipped.
-        var totalPayments = await _context.Payments
-            .Where(p => !p.IsDeleted && p.Direction == PaymentDirection.Inbound
-                && _context.SalesOrders.Any(so => so.Id == p.SalesOrderId && so.CustomerId == customer.Id
-                    && !so.IsDeleted && so.Status == SalesOrderStatus.Delivered))
-            .SumAsync(p => p.Amount, cancellationToken);
-
-        var outstandingBalance = totalPurchases - totalPayments;
-        var creditUtilization = customer.CreditLimit > 0
-            ? Math.Round(outstandingBalance / customer.CreditLimit * 100, 2)
-            : 0m;
-
-        return new CustomerCreditSummaryDto
-        {
-            CustomerId = customer.Id,
-            CustomerName = customer.Name,
-            CreditLimit = customer.CreditLimit,
-            TotalPurchases = totalPurchases,
-            TotalPayments = totalPayments,
-            OutstandingBalance = outstandingBalance,
-            CreditUtilization = creditUtilization,
-            IsOverCredit = customer.CreditLimit > 0 && outstandingBalance > customer.CreditLimit
-        };
     }
 }
 

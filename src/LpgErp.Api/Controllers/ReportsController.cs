@@ -1,13 +1,16 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.Reports;
 using LpgErp.Application.Features.Reports.DTOs;
+using LpgErp.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
+// Every action here is a read, and Reports only defines a single permission (View) — one
+// class-level policy covers all of them instead of repeating the same attribute 20+ times.
 [ApiController]
-[Authorize]
+[Authorize(Policy = AppPermissions.Reports.View)]
 [Route("api/v1/[controller]")]
 public class ReportsController : ControllerBase
 {

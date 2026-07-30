@@ -1,6 +1,7 @@
 using AutoMapper;
 using FluentAssertions;
 using LpgErp.Application.Common.Mappings;
+using LpgErp.Application.Features.CustomerAccount;
 using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.SalesOrders;
 using LpgErp.Application.Features.SalesOrders.DTOs;
@@ -166,7 +167,7 @@ public class InputGuardTests
         await context.SaveChangesAsync();
 
         // Regression: this used to Sum the unmapped SalesOrder.NetAmount and throw on translation.
-        var summary = await new CustomerCreditService(context).GetCustomerCreditSummaryAsync(_customerId);
+        var summary = await new CustomerCreditService(context, new CustomerAccountService(context)).GetCustomerCreditSummaryAsync(_customerId);
 
         summary.IsSuccess.Should().BeTrue();
         summary.Data!.TotalPurchases.Should().Be(75m);

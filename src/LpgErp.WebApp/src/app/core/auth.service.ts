@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
-import { AuthResult, UserDto, LoginRequest, RegisterRequest, RoleDto, PermissionDto } from './auth.models';
+import { AuthResult, UserDto, LoginRequest, RegisterRequest, RoleDto, PermissionDto, CreateUserRequest, UpdateUserRequest } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -20,7 +20,8 @@ export class AuthService {
   }
 
   login(request: LoginRequest): Observable<AuthResult> {
-    return this.http.post<AuthResult>(`${this.baseUrl}/Auth/login`, request).pipe(
+    return this.http.post<{ success: boolean; data: AuthResult }>(`${this.baseUrl}/Auth/login`, request).pipe(
+      map(res => res.data),
       tap(result => {
         if (result.isSuccess && result.token) {
           this.setSession(result);
@@ -30,7 +31,8 @@ export class AuthService {
   }
 
   register(request: RegisterRequest): Observable<AuthResult> {
-    return this.http.post<AuthResult>(`${this.baseUrl}/Auth/register`, request).pipe(
+    return this.http.post<{ success: boolean; data: AuthResult }>(`${this.baseUrl}/Auth/register`, request).pipe(
+      map(res => res.data),
       tap(result => {
         if (result.isSuccess && result.token) {
           this.setSession(result);
@@ -71,17 +73,18 @@ export class AuthService {
       .pipe(map(res => res.data));
   }
 
-  getUsers(): Observable<UserDto[]> {
-    return this.http.get<{ success: boolean; data: UserDto[] }>(`${this.baseUrl}/Auth/users`)
-      .pipe(map(res => res.data));
+  getUsers(pageNumber = 1, pageSize = 200): Observable<UserDto[]> {
+    return this.http.get<{ success: boolean; data: UserDto[] }>(
+      `${this.baseUrl}/Auth/users?pageNumber=${pageNumber}&pageSize=${pageSize}`
+    ).pipe(map(res => res.data));
   }
 
-  createUser(request: any): Observable<UserDto> {
+  createUser(request: CreateUserRequest): Observable<UserDto> {
     return this.http.post<{ success: boolean; data: UserDto }>(`${this.baseUrl}/Auth/users`, request)
       .pipe(map(res => res.data));
   }
 
-  updateUser(id: string, request: any): Observable<UserDto> {
+  updateUser(id: string, request: UpdateUserRequest): Observable<UserDto> {
     return this.http.put<{ success: boolean; data: UserDto }>(`${this.baseUrl}/Auth/users/${id}`, request)
       .pipe(map(res => res.data));
   }

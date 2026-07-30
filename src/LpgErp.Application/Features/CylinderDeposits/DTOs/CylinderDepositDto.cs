@@ -35,6 +35,12 @@ public class CreateCylinderDepositRequest : IMapTo<CylinderDeposit>
     public int Quantity { get; set; }
     public string? Reference { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>How the deposit money moved, so it reaches the cash and wallet balances.</summary>
+    public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
+
+    /// <summary>Which wallet or bank account. Required for mobile banking and bank transfers.</summary>
+    public Guid? PaymentAccountId { get; set; }
 }
 
 public class UpdateCylinderDepositRequest : IMapTo<CylinderDeposit>

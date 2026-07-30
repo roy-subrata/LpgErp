@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using LpgErp.Application.Common.Mappings;
+using LpgErp.Application.Features.Payments.DTOs;
 using LpgErp.Domain.Entities;
 
 namespace LpgErp.Application.Features.SalesOrders.DTOs;
@@ -46,6 +47,7 @@ public class SalesOrderItemDto : IMapFrom<SalesOrderItem>
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
     public int? EmptyReturnedQuantity { get; set; }
+    public int DamagedReturnedQuantity { get; set; }
 
     public void Mapping(Profile profile)
     {
@@ -66,6 +68,9 @@ public class CreateSalesOrderRequest : IMapTo<SalesOrder>
     public Guid? RouteId { get; set; }
     public Guid? VehicleLoadingId { get; set; }
     public List<CreateSalesOrderItemRequest> Items { get; set; } = [];
+
+    /// <summary>How the customer paid, if they paid at the time of sale. Null when nothing was collected.</summary>
+    public OrderPaymentRequest? Payment { get; set; }
 }
 
 public class CreateSalesOrderItemRequest
@@ -74,6 +79,9 @@ public class CreateSalesOrderItemRequest
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public int? EmptyReturnedQuantity { get; set; }
+
+    /// <summary>How many of the returned empties are leaking and cannot be refilled.</summary>
+    public int DamagedReturnedQuantity { get; set; }
 }
 
 public class UpdateSalesOrderRequest : IMapTo<SalesOrder>

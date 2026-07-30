@@ -45,6 +45,9 @@ import { CustomerNotificationFormComponent } from './customer-notification-form.
               <td>{{ n.isRead ? 'Yes' : 'No' }}</td>
               <td>{{ n.isSent ? 'Yes' : 'No' }}</td>
               <td>
+                @if (!n.isRead) {
+                  <button class="btn-sm" (click)="onMarkRead(n.id)">Mark Read</button>
+                }
                 <button class="btn-sm" (click)="onEdit(n.id)">Edit</button>
                 <button class="btn-sm btn-danger" (click)="onDelete(n.id)">Delete</button>
               </td>
@@ -111,6 +114,12 @@ export class CustomerNotificationListComponent implements OnInit {
   onEdit(id: string) {
     this.editingId.set(id);
     this.showForm.set(true);
+  }
+
+  // The dedicated endpoint also stamps ReadAt, which toggling the Edit form's checkbox does not —
+  // that path updates IsRead through the generic Update, silently leaving ReadAt null forever.
+  onMarkRead(id: string) {
+    this.api.post(`customernotifications/${id}/read`, {}).subscribe(() => this.loadData());
   }
 
   onDelete(id: string) {

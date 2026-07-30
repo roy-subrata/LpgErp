@@ -7,4 +7,6 @@ namespace LpgErp.Api.Controllers;
 public class CustomersController : BaseController<CreateCustomerRequest, UpdateCustomerRequest, CustomerDto>
 {
     public CustomersController(ICustomerService service) : base(service) { }
+
+    protected override string? PermissionGroup => "customers";
 }

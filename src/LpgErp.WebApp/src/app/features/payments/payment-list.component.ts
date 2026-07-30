@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EntityListComponent, EntityConfig } from '../../shared/entity-list.component';
+import { PAYMENT_METHOD_OPTIONS, PAYMENT_METHOD_BADGES, PAYMENT_DIRECTION_BADGES } from '../../core/payment-methods';
 
 @Component({
   selector: 'app-payment-list',
@@ -15,26 +16,9 @@ export class PaymentListComponent {
     singular: 'Payment',
     cols: [
       { key: 'salesOrderNumber', label: 'Sales Order', kind: 'mono', sub: 'purchaseOrderNumber' },
-      {
-        key: 'method',
-        label: 'Method',
-        kind: 'badge',
-        badgeMap: {
-          '0': ['#f0fdf4', '#15803d'],
-          '1': ['#faf5ff', '#7e22ce'],
-          '2': ['#eff6ff', '#1d4ed8'],
-          '3': ['#fefce8', '#a16207'],
-        },
-      },
-      {
-        key: 'direction',
-        label: 'Direction',
-        kind: 'badge',
-        badgeMap: {
-          '0': ['#f0fdf4', '#15803d'],
-          '1': ['#fefce8', '#a16207'],
-        },
-      },
+      { key: 'method', label: 'Method', kind: 'badge', badgeMap: PAYMENT_METHOD_BADGES },
+      { key: 'paymentAccountName', label: 'Account', kind: 'muted' },
+      { key: 'direction', label: 'Direction', kind: 'badge', badgeMap: PAYMENT_DIRECTION_BADGES },
       { key: 'amount', label: 'Amount', kind: 'money' },
       { key: 'paymentDate', label: 'Date', kind: 'date' },
       { key: 'reference', label: 'Reference', kind: 'muted' },
@@ -42,7 +26,8 @@ export class PaymentListComponent {
     fields: [
       { key: 'salesOrderId', label: 'Sales Order', type: 'text' },
       { key: 'purchaseOrderId', label: 'Purchase Order', type: 'text' },
-      { key: 'method', label: 'Method', type: 'select', options: [{ label: 'Cash', value: 0 }, { label: 'Bank', value: 1 }, { label: 'Mobile', value: 2 }, { label: 'Cheque', value: 3 }] },
+      { key: 'method', label: 'Method', type: 'select', options: PAYMENT_METHOD_OPTIONS },
+      { key: 'paymentAccountId', label: 'Account', type: 'select', endpoint: 'paymentaccounts', optionLabel: 'name' },
       { key: 'direction', label: 'Direction', type: 'select', options: [{ label: 'Received', value: 0 }, { label: 'Paid', value: 1 }] },
       { key: 'amount', label: 'Amount', type: 'number', required: true },
       { key: 'paymentDate', label: 'Payment Date', type: 'date' },
@@ -50,5 +35,5 @@ export class PaymentListComponent {
       { key: 'notes', label: 'Notes', type: 'textarea' },
     ],
   };
-  readonly searchFields = ['salesOrderNumber', 'purchaseOrderNumber', 'reference'];
+  readonly searchFields = ['salesOrderNumber', 'purchaseOrderNumber', 'reference', 'paymentAccountName'];
 }

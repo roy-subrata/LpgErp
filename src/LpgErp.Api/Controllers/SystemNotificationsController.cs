@@ -7,6 +7,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LpgErp.Api.Controllers;
 
+// Deliberately left ungated by permission — every authenticated user's notification bell polls
+// this regardless of role, and who sees which notification is already filtered by TargetRoles.
+// AppPermissions.Notifications belongs to the customer-messaging feature (CustomerNotifications),
+// not this general system bell; gating it the same way would break the bell for every role except
+// Manager/Admin, since they're the only ones holding Notifications.View today.
 [ApiController]
 [Authorize]
 [Route("api/v1/[controller]")]

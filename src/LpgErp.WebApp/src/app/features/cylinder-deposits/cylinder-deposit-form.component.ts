@@ -2,13 +2,14 @@ import { Component, EventEmitter, Input, Output, inject, signal, SimpleChanges, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
+import { PaymentMethodPickerComponent } from '../../shared/payment-method-picker.component';
 import { ApiService } from '../../core/api.service';
 import { Customer, CylinderSize, CylinderDeposit } from '../../core/models';
 
 @Component({
   selector: 'app-cylinder-deposit-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent],
+  imports: [CommonModule, FormsModule, DialogComponent, PaymentMethodPickerComponent],
   template: `
     <app-dialog [open]="open" [title]="entityId ? 'Edit Cylinder Deposit' : 'New Cylinder Deposit'" (close)="onClose()">
       <form (ngSubmit)="submit()">
@@ -46,6 +47,13 @@ import { Customer, CylinderSize, CylinderDeposit } from '../../core/models';
           <label for="quantity">Quantity</label>
           <input id="quantity" type="number" [(ngModel)]="quantity" name="quantity" required />
         </div>
+        @if (movesCash()) {
+          <app-payment-method-picker
+            idPrefix="deposit"
+            [methodLabel]="type == 2 ? 'Refunded By' : 'Paid By'"
+            [(method)]="method"
+            [(accountId)]="paymentAccountId" />
+        }
         <div class="form-group">
           <label for="reference">Reference</label>
           <input id="reference" type="text" [(ngModel)]="reference" name="reference" />
@@ -86,9 +94,16 @@ export class CylinderDepositFormComponent implements OnChanges {
   quantity = 0;
   reference = '';
   notes = '';
+  method = 0;
+  paymentAccountId = '';
   customers = signal<Customer[]>([]);
   cylinderSizes = signal<CylinderSize[]>([]);
   saving = signal(false);
+
+  /** "Returned" records cylinders coming back with no money changing hands. */
+  movesCash(): boolean {
+    return Number(this.type) !== 1;
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
@@ -120,6 +135,8 @@ export class CylinderDepositFormComponent implements OnChanges {
       quantity: this.quantity,
       reference: this.reference,
       notes: this.notes,
+      method: Number(this.method),
+      paymentAccountId: this.paymentAccountId || null,
     };
 
     const req$ = this.entityId
@@ -149,5 +166,7 @@ export class CylinderDepositFormComponent implements OnChanges {
     this.quantity = 0;
     this.reference = '';
     this.notes = '';
+    this.method = 0;
+    this.paymentAccountId = '';
   }
 }

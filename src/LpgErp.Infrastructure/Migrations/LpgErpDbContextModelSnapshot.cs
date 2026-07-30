@@ -922,6 +922,15 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CylinderDepositId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CylinderExchangeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -940,11 +949,17 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("PaymentAccountId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("PurchaseOrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
 
                     b.Property<string>("Reference")
                         .HasColumnType("nvarchar(max)");
@@ -960,11 +975,78 @@ namespace LpgErp.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CylinderDepositId");
+
+                    b.HasIndex("CylinderExchangeId");
+
+                    b.HasIndex("PaymentAccountId");
+
                     b.HasIndex("PurchaseOrderId");
 
                     b.HasIndex("SalesOrderId");
 
+                    b.HasIndex("CustomerId", "PaymentDate");
+
                     b.ToTable("Payments", (string)null);
+                });
+
+            modelBuilder.Entity("LpgErp.Domain.Entities.PaymentAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("PaymentAccounts", (string)null);
                 });
 
             modelBuilder.Entity("LpgErp.Domain.Entities.Permission", b =>
@@ -1104,6 +1186,9 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<Guid?>("CylinderSizeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("DamagedStock")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -1185,6 +1270,9 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("LeakageCredit")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
@@ -1260,6 +1348,12 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("EmptyReturnedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmptySentQuantity")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1295,6 +1389,70 @@ namespace LpgErp.Infrastructure.Migrations
                     b.HasIndex("PurchaseOrderId");
 
                     b.ToTable("PurchaseOrderItems", (string)null);
+                });
+
+            modelBuilder.Entity("LpgErp.Domain.Entities.PurchaseOrderLeakage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("CreditAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("CylinderSizeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Resolution")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SettledQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BrandId");
+
+                    b.HasIndex("CylinderSizeId");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.ToTable("PurchaseOrderLeakages", (string)null);
                 });
 
             modelBuilder.Entity("LpgErp.Domain.Entities.RefreshToken", b =>
@@ -1571,6 +1729,9 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("DamagedReturnedQuantity")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -1741,6 +1902,9 @@ namespace LpgErp.Infrastructure.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DamagedQuantity")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -2161,10 +2325,12 @@ namespace LpgErp.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.HasIndex("Username")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Users", (string)null);
                 });
@@ -2729,6 +2895,26 @@ namespace LpgErp.Infrastructure.Migrations
 
             modelBuilder.Entity("LpgErp.Domain.Entities.Payment", b =>
                 {
+                    b.HasOne("LpgErp.Domain.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LpgErp.Domain.Entities.CylinderDeposit", "CylinderDeposit")
+                        .WithMany()
+                        .HasForeignKey("CylinderDepositId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LpgErp.Domain.Entities.CylinderExchange", "CylinderExchange")
+                        .WithMany()
+                        .HasForeignKey("CylinderExchangeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LpgErp.Domain.Entities.PaymentAccount", "PaymentAccount")
+                        .WithMany("Payments")
+                        .HasForeignKey("PaymentAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LpgErp.Domain.Entities.PurchaseOrder", "PurchaseOrder")
                         .WithMany("Payments")
                         .HasForeignKey("PurchaseOrderId")
@@ -2738,6 +2924,14 @@ namespace LpgErp.Infrastructure.Migrations
                         .WithMany("Payments")
                         .HasForeignKey("SalesOrderId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("CylinderDeposit");
+
+                    b.Navigation("CylinderExchange");
+
+                    b.Navigation("PaymentAccount");
 
                     b.Navigation("PurchaseOrder");
 
@@ -2813,6 +3007,33 @@ namespace LpgErp.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+
+                    b.Navigation("PurchaseOrder");
+                });
+
+            modelBuilder.Entity("LpgErp.Domain.Entities.PurchaseOrderLeakage", b =>
+                {
+                    b.HasOne("LpgErp.Domain.Entities.Brand", "Brand")
+                        .WithMany()
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LpgErp.Domain.Entities.CylinderSize", "CylinderSize")
+                        .WithMany()
+                        .HasForeignKey("CylinderSizeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LpgErp.Domain.Entities.PurchaseOrder", "PurchaseOrder")
+                        .WithMany("Leakages")
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Brand");
+
+                    b.Navigation("CylinderSize");
 
                     b.Navigation("PurchaseOrder");
                 });
@@ -3101,6 +3322,11 @@ namespace LpgErp.Infrastructure.Migrations
                     b.Navigation("Suppliers");
                 });
 
+            modelBuilder.Entity("LpgErp.Domain.Entities.PaymentAccount", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
             modelBuilder.Entity("LpgErp.Domain.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
@@ -3109,6 +3335,8 @@ namespace LpgErp.Infrastructure.Migrations
             modelBuilder.Entity("LpgErp.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("Leakages");
 
                     b.Navigation("Payments");
                 });

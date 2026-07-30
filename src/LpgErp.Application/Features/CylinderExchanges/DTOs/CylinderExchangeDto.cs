@@ -50,6 +50,12 @@ public class CreateCylinderExchangeRequest : IMapTo<CylinderExchange>
     public int OutgoingQuantity { get; set; }
     public decimal ExchangeCharge { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>How the exchange charge was collected, when there is one.</summary>
+    public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
+
+    /// <summary>Which wallet or bank account. Required for mobile banking and bank transfers.</summary>
+    public Guid? PaymentAccountId { get; set; }
 }
 
 public class UpdateCylinderExchangeRequest : IMapTo<CylinderExchange>

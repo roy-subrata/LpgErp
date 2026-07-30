@@ -2,13 +2,14 @@ import { Component, EventEmitter, Input, Output, inject, signal, SimpleChanges, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
+import { PaymentMethodPickerComponent } from '../../shared/payment-method-picker.component';
 import { ApiService } from '../../core/api.service';
 import { Brand, Customer, CylinderSize, CylinderExchange, Warehouse } from '../../core/models';
 
 @Component({
   selector: 'app-cylinder-exchange-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent],
+  imports: [CommonModule, FormsModule, DialogComponent, PaymentMethodPickerComponent],
   template: `
     <app-dialog [open]="open" [title]="entityId ? 'Edit Cylinder Exchange' : 'New Cylinder Exchange'" (close)="onClose()">
       <form (ngSubmit)="submit()">
@@ -80,6 +81,13 @@ import { Brand, Customer, CylinderSize, CylinderExchange, Warehouse } from '../.
           <label for="exchangeCharge">Exchange Charge</label>
           <input id="exchangeCharge" type="number" [(ngModel)]="exchangeCharge" name="exchangeCharge" required />
         </div>
+        @if (exchangeCharge > 0) {
+          <app-payment-method-picker
+            idPrefix="exchange"
+            methodLabel="Charge Paid By"
+            [(method)]="method"
+            [(accountId)]="paymentAccountId" />
+        }
         <div class="form-group">
           <label for="notes">Notes</label>
           <input id="notes" type="text" [(ngModel)]="notes" name="notes" />
@@ -120,6 +128,8 @@ export class CylinderExchangeFormComponent implements OnChanges {
   outgoingQuantity = 0;
   exchangeCharge = 0;
   notes = '';
+  method = 0;
+  paymentAccountId = '';
   customers = signal<Customer[]>([]);
   warehouses = signal<Warehouse[]>([]);
   brands = signal<Brand[]>([]);
@@ -164,6 +174,8 @@ export class CylinderExchangeFormComponent implements OnChanges {
       outgoingQuantity: this.outgoingQuantity,
       exchangeCharge: this.exchangeCharge,
       notes: this.notes,
+      method: Number(this.method),
+      paymentAccountId: this.paymentAccountId || null,
     };
 
     const req$ = this.entityId
@@ -196,5 +208,7 @@ export class CylinderExchangeFormComponent implements OnChanges {
     this.outgoingQuantity = 0;
     this.exchangeCharge = 0;
     this.notes = '';
+    this.method = 0;
+    this.paymentAccountId = '';
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import * as signalR from '@microsoft/signalr';
 import { AuthService } from './auth.service';
@@ -74,10 +74,6 @@ export class NotificationHubService {
     this.hubConnection = null;
   }
 
-  clearUnread(): void {
-    this.unreadCount.set(0);
-  }
-
   loadHistory(): void {
     this.http.get<{ success: boolean; data: SystemNotificationDto[] }>(
       `${this.baseUrl}/SystemNotifications?pageSize=50`
@@ -86,7 +82,31 @@ export class NotificationHubService {
         if (res.success) {
           const filtered = res.data.filter(n => this.matchesHistoryNotification(n));
           this.history.set(filtered);
+          // The badge reflects what the server actually has marked unread, not just live pushes
+          // received since connecting — otherwise a refresh (or a second device) loses the count.
+          this.unreadCount.set(filtered.filter(n => !n.isRead).length);
         }
+      },
+      error: () => {}
+    });
+  }
+
+  markAsRead(id: string): void {
+    this.http.post(`${this.baseUrl}/SystemNotifications/${id}/read`, {}).subscribe({
+      next: () => {
+        this.history.update(items =>
+          items.map(n => n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n));
+        this.unreadCount.update(c => Math.max(0, c - 1));
+      },
+      error: () => {}
+    });
+  }
+
+  markAllAsRead(): void {
+    this.http.post(`${this.baseUrl}/SystemNotifications/read-all`, {}).subscribe({
+      next: () => {
+        this.history.update(items => items.map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() })));
+        this.unreadCount.set(0);
       },
       error: () => {}
     });

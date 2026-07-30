@@ -1,11 +1,14 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.PurchaseOrders;
 using LpgErp.Application.Features.PurchaseOrders.DTOs;
+using LpgErp.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class PurchaseOrdersController : ControllerBase
 {
@@ -17,6 +20,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.View)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -26,6 +30,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
@@ -34,6 +39,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.Create)]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CreateAsync(request, cancellationToken);
@@ -42,6 +48,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.Edit)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePurchaseOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, request, cancellationToken);
@@ -50,6 +57,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeleteAsync(id, cancellationToken);
@@ -58,6 +66,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/confirm")]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.Edit)]
     public async Task<IActionResult> Confirm(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.ConfirmAsync(id, cancellationToken);
@@ -66,6 +75,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/receive")]
+    [Authorize(Policy = AppPermissions.PurchaseOrders.Receive)]
     public async Task<IActionResult> Receive(Guid id, [FromBody] ReceivePurchaseOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.ReceiveAsync(id, request, cancellationToken);

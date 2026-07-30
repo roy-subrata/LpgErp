@@ -26,9 +26,11 @@ public class LpgErpDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<Product> Products => Set<Product>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
+    public DbSet<PurchaseOrderLeakage> PurchaseOrderLeakages => Set<PurchaseOrderLeakage>();
     public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
     public DbSet<SalesOrderItem> SalesOrderItems => Set<SalesOrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentAccount> PaymentAccounts => Set<PaymentAccount>();
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<CustomerCylinderBalance> CustomerCylinderBalances => Set<CustomerCylinderBalance>();

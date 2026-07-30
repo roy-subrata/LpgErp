@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
+using LpgErp.Application.Features.Payments;
 using LpgErp.Application.Features.SalesOrders.DTOs;
 using LpgErp.Domain.Entities;
 using LpgErp.Domain.Interfaces;
@@ -98,7 +99,8 @@ public class SalesOrderService : ISalesOrderService
                 ProductId = i.ProductId,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
-                EmptyReturnedQuantity = i.EmptyReturnedQuantity
+                EmptyReturnedQuantity = i.EmptyReturnedQuantity,
+                DamagedReturnedQuantity = i.DamagedReturnedQuantity
             }).ToList()
         };
 
@@ -106,6 +108,29 @@ public class SalesOrderService : ISalesOrderService
 
         if (ValidateDiscount(order.Discount, order.TotalAmount) is string discountError)
             return Result<SalesOrderDto>.Failure(discountError);
+
+        // Money collected at the counter is recorded with the order itself, in the same save, so a
+        // cash or bKash sale can never end up with no record of how it was paid.
+        if (request.Payment is { Amount: > 0 } paymentRequest)
+        {
+            var netAmount = order.TotalAmount - order.Discount;
+            if (paymentRequest.Amount > netAmount)
+                return Result<SalesOrderDto>.Failure($"Payment ({paymentRequest.Amount:N2}) exceeds the order total ({netAmount:N2}).");
+
+            if (await PaymentAccountRules.ValidateAsync(_context, paymentRequest.PaymentAccountId, paymentRequest.Method, cancellationToken) is string accountError)
+                return Result<SalesOrderDto>.Failure(accountError);
+
+            order.Payments.Add(new Payment
+            {
+                Method = paymentRequest.Method,
+                PaymentAccountId = paymentRequest.PaymentAccountId,
+                Direction = PaymentDirection.Inbound,
+                Amount = paymentRequest.Amount,
+                PaymentDate = order.OrderDate,
+                Reference = paymentRequest.Reference,
+                Notes = "Collected at point of sale."
+            });
+        }
 
         await _context.SalesOrders.AddAsync(order, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -155,7 +180,8 @@ public class SalesOrderService : ISalesOrderService
             ProductId = i.ProductId,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice,
-            EmptyReturnedQuantity = i.EmptyReturnedQuantity
+            EmptyReturnedQuantity = i.EmptyReturnedQuantity,
+            DamagedReturnedQuantity = i.DamagedReturnedQuantity
         }).ToList();
 
         entity.TotalAmount = entity.Items.Sum(i => i.TotalPrice);
@@ -345,7 +371,8 @@ public class SalesOrderService : ISalesOrderService
     }
 
     /// <summary>
-    /// Records the cylinder movement of a delivered sale on the customer's cylinder ledger.
+    /// Records the cylinder movement of a delivered sale: the customer's cylinder ledger, and the
+    /// empties they hand back arriving in the warehouse.
     /// Gas-refill lines only: the customer receives filled cylinders and hands back empties.
     /// EmptyReturnedQuantity null = full swap; 0 = advance refill (cylinder owed, tracked as outstanding).
     /// Packages/empty-cylinder sales transfer ownership and do not touch the ledger.
@@ -357,6 +384,8 @@ public class SalesOrderService : ISalesOrderService
             var product = await _context.Products.FindAsync([item.ProductId], cancellationToken);
             if (product is null || product.Type != ProductType.GasRefill) continue;
             if (product.BrandId is null || product.CylinderSizeId is null) continue;
+
+            await ReceiveReturnedEmptiesAsync(order, item, product, cancellationToken);
 
             var balance = await _context.CustomerCylinderBalances.FirstOrDefaultAsync(b =>
                 b.CustomerId == order.CustomerId
@@ -378,5 +407,59 @@ public class SalesOrderService : ISalesOrderService
             balance.Received += item.Quantity;
             balance.Returned += item.EmptyReturnedQuantity ?? item.Quantity;
         }
+    }
+
+    /// <summary>
+    /// Puts the empties handed back on a refill into warehouse stock. Leaking ones are counted
+    /// separately, since they cannot be sold or sent for refilling until the company takes them.
+    /// </summary>
+    private async Task ReceiveReturnedEmptiesAsync(SalesOrder order, SalesOrderItem item, Product refill, CancellationToken cancellationToken)
+    {
+        var returned = item.EmptyReturnedQuantity ?? item.Quantity;
+        if (returned <= 0) return;
+
+        var emptyProduct = await _context.Products.FirstOrDefaultAsync(p => !p.IsDeleted
+            && p.Type == ProductType.EmptyCylinder
+            && p.BrandId == refill.BrandId
+            && p.CylinderSizeId == refill.CylinderSizeId, cancellationToken);
+
+        // Without a matching empty-cylinder product there is nowhere to put them; the customer's
+        // cylinder ledger still records the return.
+        if (emptyProduct is null) return;
+
+        var damaged = Math.Min(item.DamagedReturnedQuantity, returned);
+        var good = returned - damaged;
+
+        var stock = await _context.StockLevels
+            .FirstOrDefaultAsync(s => s.WarehouseId == order.WarehouseId && s.ProductId == emptyProduct.Id, cancellationToken);
+
+        if (stock is null)
+        {
+            stock = new StockLevel { WarehouseId = order.WarehouseId, ProductId = emptyProduct.Id, Quantity = 0 };
+            await _context.StockLevels.AddAsync(stock, cancellationToken);
+        }
+
+        stock.Quantity += good;
+        stock.DamagedQuantity += damaged;
+
+        var stored = await _context.Products.FindAsync([emptyProduct.Id], cancellationToken);
+        if (stored is not null)
+        {
+            stored.CurrentStock += good;
+            stored.DamagedStock += damaged;
+        }
+
+        await _context.StockMovements.AddAsync(new StockMovement
+        {
+            ProductId = emptyProduct.Id,
+            Type = StockMovementType.Return,
+            Quantity = returned,
+            ToWarehouseId = order.WarehouseId,
+            SalesOrderId = order.Id,
+            Reference = damaged > 0
+                ? $"{order.OrderNumber} · empties returned ({damaged} leaking)"
+                : $"{order.OrderNumber} · empties returned",
+            MovementDate = DateTime.UtcNow
+        }, cancellationToken);
     }
 }

@@ -7,11 +7,25 @@ import { ApiService } from '../../core/api.service';
 interface ReceiveLine {
   productId: string;
   productName: string;
+  productType: number;
   orderedQuantity: number;
   alreadyReceived: number;
   receivedQuantity: number;
   damagedQuantity: number;
   missingQuantity: number;
+  /** Empties going back to the company for this refill line. Blank = one per refill received. */
+  emptySentQuantity: number | null;
+  emptyAlreadySent: number;
+}
+
+interface LeakageLine {
+  id: string;
+  label: string;
+  quantity: number;
+  alreadySettled: number;
+  resolution: number;
+  creditAmount: number;
+  settledQuantity: number;
 }
 
 @Component({
@@ -24,6 +38,7 @@ interface ReceiveLine {
         <p class="empty">This order has no items to receive.</p>
       } @else {
         <p class="hint">Enter the quantities physically received, plus any damaged or missing (short) units. Only good (received − damaged) units are added to warehouse stock.</p>
+        <p class="hint">Leave <strong>Empties Out</strong> blank to send one empty cylinder per refill received — the normal swap. Enter a smaller number if you sent fewer; the rest stays owed to the company.</p>
         <div class="table-wrap">
           <table class="receive-table">
             <thead>
@@ -35,6 +50,7 @@ interface ReceiveLine {
                 <th>Receive</th>
                 <th>Damaged</th>
                 <th>Missing</th>
+                <th title="Empty cylinders handed back to the company">Empties Out</th>
               </tr>
             </thead>
             <tbody>
@@ -47,11 +63,46 @@ interface ReceiveLine {
                   <td><input type="number" min="0" [(ngModel)]="line.receivedQuantity" [name]="'recv_' + line.productId" /></td>
                   <td><input type="number" min="0" [(ngModel)]="line.damagedQuantity" [name]="'dmg_' + line.productId" /></td>
                   <td><input type="number" min="0" [(ngModel)]="line.missingQuantity" [name]="'miss_' + line.productId" /></td>
+                  <td>
+                    @if (line.productType === 1) {
+                      <input type="number" min="0" [placeholder]="line.receivedQuantity || '='"
+                             [(ngModel)]="line.emptySentQuantity" [name]="'empty_' + line.productId" />
+                    } @else {
+                      <span class="na">—</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+        @if (leakages().length > 0) {
+          <h4 class="section">Leaking cylinders returned</h4>
+          <div class="table-wrap">
+            <table class="receive-table">
+              <thead>
+                <tr>
+                  <th class="left">Cylinder</th>
+                  <th>Returned</th>
+                  <th>Settled</th>
+                  <th class="left">Company gives</th>
+                  <th>Settle now</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (leak of leakages(); track leak.id) {
+                  <tr>
+                    <td class="left">{{ leak.label }}</td>
+                    <td>{{ leak.quantity }}</td>
+                    <td>{{ leak.alreadySettled }}</td>
+                    <td class="left">{{ resolutionLabel(leak) }}</td>
+                    <td><input type="number" min="0" [(ngModel)]="leak.settledQuantity" [name]="'leak_' + leak.id" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
         @if (error()) { <p class="error">{{ error() }}</p> }
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
@@ -71,6 +122,8 @@ interface ReceiveLine {
     .receive-table th.left, .receive-table td.left { text-align: left; }
     .receive-table input { width: 68px; padding: 0.35rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .error { color: #dc3545; font-size: 0.85rem; margin-top: 0.75rem; }
+    .na { color: #9ca3af; }
+    .section { margin: 1.25rem 0 0.5rem; font-size: 0.9rem; color: #555; }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
     .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
     .btn-primary { background: #1a1a2e; color: white; border-color: #1a1a2e; }
@@ -88,6 +141,7 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
 
   orderNumber = signal('');
   lines = signal<ReceiveLine[]>([]);
+  leakages = signal<LeakageLine[]>([]);
   saving = signal(false);
   error = signal('');
 
@@ -100,11 +154,23 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
         this.lines.set((po.items ?? []).map((i: any) => ({
           productId: i.productId,
           productName: i.productName ?? i.productId,
+          productType: i.productType ?? 0,
           orderedQuantity: i.orderedQuantity ?? 0,
           alreadyReceived: i.receivedQuantity ?? 0,
           receivedQuantity: 0,
           damagedQuantity: 0,
           missingQuantity: 0,
+          emptySentQuantity: null,
+          emptyAlreadySent: i.emptySentQuantity ?? 0,
+        })));
+        this.leakages.set((po.leakages ?? []).map((l: any) => ({
+          id: l.id,
+          label: `${l.brandName ?? ''} ${l.cylinderSizeName ?? ''}`.trim(),
+          quantity: l.quantity ?? 0,
+          alreadySettled: l.settledQuantity ?? 0,
+          resolution: l.resolution ?? 0,
+          creditAmount: l.creditAmount ?? 0,
+          settledQuantity: 0,
         })));
       });
     }
@@ -112,6 +178,14 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
 
   outstanding(line: ReceiveLine): number {
     return Math.max(0, line.orderedQuantity - line.alreadyReceived);
+  }
+
+  resolutionLabel(leak: LeakageLine): string {
+    switch (leak.resolution) {
+      case 0: return 'Free refill';
+      case 1: return `Credit ৳${leak.creditAmount}`;
+      default: return 'Replacement cylinder';
+    }
   }
 
   submit() {
@@ -122,10 +196,18 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
         receivedQuantity: l.receivedQuantity || 0,
         damagedQuantity: l.damagedQuantity || 0,
         missingQuantity: l.missingQuantity || 0,
+        // Blank means the normal one-for-one swap; the server works it out from what arrived.
+        emptySentQuantity: l.emptySentQuantity === null || (l.emptySentQuantity as any) === ''
+          ? null
+          : Number(l.emptySentQuantity),
       }));
 
-    if (items.length === 0) {
-      this.error.set('Enter at least one received, damaged, or missing quantity.');
+    const leakages = this.leakages()
+      .filter(l => l.settledQuantity > 0)
+      .map(l => ({ leakageId: l.id, settledQuantity: Number(l.settledQuantity) }));
+
+    if (items.length === 0 && this.leakages().every(l => l.settledQuantity <= 0)) {
+      this.error.set('Enter at least one received, damaged, missing, or settled quantity.');
       return;
     }
     if (items.some(i => i.damagedQuantity > i.receivedQuantity)) {
@@ -135,7 +217,7 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
 
     this.saving.set(true);
     this.error.set('');
-    this.api.post(`purchaseorders/${this.entityId}/receive`, { items }).subscribe({
+    this.api.post(`purchaseorders/${this.entityId}/receive`, { items, leakages }).subscribe({
       next: () => {
         this.saving.set(false);
         this.received.emit();

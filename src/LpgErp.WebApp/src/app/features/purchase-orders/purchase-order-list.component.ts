@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EntityListComponent, EntityConfig, RowAction } from '../../shared/entity-list.component';
+import { ApiService } from '../../core/api.service';
 import { PurchaseOrderFormComponent } from './purchase-order-form.component';
 import { PurchaseOrderReceiveComponent } from './purchase-order-receive.component';
 
@@ -34,15 +35,23 @@ import { PurchaseOrderReceiveComponent } from './purchase-order-receive.componen
   `,
 })
 export class PurchaseOrderListComponent {
+  private api = inject(ApiService);
+
   formOpen = signal(false);
   editId = signal<string | null>(null);
   receiveOpen = signal(false);
   receiveId = signal<string | null>(null);
   reloadTick = signal(0);
 
-  // "Receive" is only offered for orders that are confirmed, in transit, or partially received
-  // (PurchaseOrderStatus 1/2/3) — not drafts, fully-received, or cancelled. Enums serialize as numbers.
+  // Status: 0 Draft, 1 Confirmed, 2 InTransit, 3 PartiallyReceived, 4 Received, 5 Cancelled.
+  // "Confirm" moves a draft on; "Receive" only makes sense once it has been.
   readonly rowActions: RowAction[] = [
+    {
+      key: 'confirm',
+      icon: '✓',
+      title: 'Confirm order',
+      show: (po) => po.status === 0,
+    },
     {
       key: 'receive',
       icon: '📥',
@@ -57,10 +66,20 @@ export class PurchaseOrderListComponent {
   }
 
   onRowAction(e: { key: string; item: any }) {
-    if (e.key === 'receive') {
+    if (e.key === 'confirm') {
+      this.onConfirm(e.item);
+    } else if (e.key === 'receive') {
       this.receiveId.set(e.item.id);
       this.receiveOpen.set(true);
     }
+  }
+
+  onConfirm(item: any) {
+    if (!confirm(`Confirm order ${item.orderNumber}?`)) return;
+    this.api.post(`purchaseorders/${item.id}/confirm`, {}).subscribe({
+      next: () => this.reloadTick.update(v => v + 1),
+      error: (e) => alert(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Could not confirm this order.'),
+    });
   }
 
   onReceived() {

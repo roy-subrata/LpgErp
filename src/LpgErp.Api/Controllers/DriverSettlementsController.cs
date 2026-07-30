@@ -1,11 +1,15 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.DriverSettlements;
 using LpgErp.Application.Features.DriverSettlements.DTOs;
+using LpgErp.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
+// Previously had no [Authorize] at all — driver payout records were reachable without logging in.
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class DriverSettlementsController : ControllerBase
 {
@@ -17,6 +21,7 @@ public class DriverSettlementsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = AppPermissions.Settlements.View)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -26,6 +31,7 @@ public class DriverSettlementsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.Settlements.Create)]
     public async Task<IActionResult> Create([FromBody] CreateDriverSettlementRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CreateAsync(request, cancellationToken);
@@ -34,6 +40,7 @@ public class DriverSettlementsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Settlements.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
@@ -42,6 +49,7 @@ public class DriverSettlementsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Settlements.Approve)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDriverSettlementRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, request, cancellationToken);
@@ -50,6 +58,7 @@ public class DriverSettlementsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Settlements.Approve)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeleteAsync(id, cancellationToken);

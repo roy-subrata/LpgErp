@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, Output, inject, signal, SimpleChanges, OnChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal, computed, SimpleChanges, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
 import { ApiService } from '../../core/api.service';
-import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
+import { Payment, SalesOrder, PurchaseOrder, PaymentAccount } from '../../core/models';
+import { PAYMENT_METHOD_OPTIONS, requiresAccount } from '../../core/payment-methods';
 
 @Component({
   selector: 'app-payment-form',
@@ -34,12 +35,25 @@ import { Payment, SalesOrder, PurchaseOrder } from '../../core/models';
         </div>
         <div class="form-group">
           <label for="method">Method</label>
-          <select id="method" [(ngModel)]="method" name="method" required>
-            <option [ngValue]="0">Cash</option>
-            <option [ngValue]="1">Credit</option>
-            <option [ngValue]="2">Bank Transfer</option>
-            <option [ngValue]="3">Mobile Banking</option>
+          <select id="method" [(ngModel)]="method" name="method" required (ngModelChange)="onMethodChange()">
+            @for (m of methodOptions; track m.value) {
+              <option [ngValue]="m.value">{{ m.label }}</option>
+            }
           </select>
+        </div>
+        <div class="form-group">
+          <label for="paymentAccountId">Account</label>
+          <select id="paymentAccountId" [(ngModel)]="paymentAccountId" name="paymentAccountId" [required]="accountRequired()">
+            <option value="">{{ accountRequired() ? '-- Select --' : '-- None (cash in hand) --' }}</option>
+            @for (a of accountsForMethod(); track a.id) {
+              <option [value]="a.id">{{ a.name }}{{ a.accountNumber ? ' · ' + a.accountNumber : '' }}</option>
+            }
+          </select>
+          @if (accountRequired() && accountsForMethod().length === 0) {
+            <small class="field-hint">No active account for this method yet — add one under Master Data → Payment Accounts.</small>
+          } @else {
+            <small class="field-hint">Which wallet or bank account the money moved through.</small>
+          }
         </div>
         <div class="form-group">
           <label for="direction">Direction</label>
@@ -87,12 +101,16 @@ export class PaymentFormComponent implements OnChanges {
 
   @Input() open = false;
   @Input() entityId: string | null = null;
+
+  /** When set, only this customer's orders are offered — used from the customer account page. */
+  @Input() customerId: string | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 
   salesOrderId = '';
   purchaseOrderId = '';
   method = 0;
+  paymentAccountId = '';
   direction = 0;
   amount = 0;
   paymentDate = '';
@@ -102,15 +120,31 @@ export class PaymentFormComponent implements OnChanges {
 
   salesOrders = signal<SalesOrder[]>([]);
   purchaseOrders = signal<PurchaseOrder[]>([]);
+  accounts = signal<PaymentAccount[]>([]);
+
+  readonly methodOptions = PAYMENT_METHOD_OPTIONS;
+
+  /** Only accounts of the selected method — a bKash payment can't land in a bank account. */
+  accountsForMethod = computed(() => this.accounts().filter(a => a.method === Number(this.method)));
+  accountRequired = () => requiresAccount(Number(this.method));
+
+  onMethodChange() {
+    // The previously picked account belongs to the old method; drop it rather than send a mismatch.
+    if (!this.accountsForMethod().some(a => a.id === this.paymentAccountId)) {
+      this.paymentAccountId = '';
+    }
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
       this.loadDropdownData();
+      this.api.getAllList<PaymentAccount>('paymentaccounts').subscribe(data => this.accounts.set(data));
       if (this.entityId) {
         this.api.getById<Payment>('payments', this.entityId).subscribe(payment => {
           this.salesOrderId = payment.salesOrderId;
           this.purchaseOrderId = payment.purchaseOrderId;
           this.method = payment.method;
+          this.paymentAccountId = payment.paymentAccountId ?? '';
           this.direction = payment.direction;
           this.amount = payment.amount;
           this.paymentDate = payment.paymentDate?.split('T')[0] || '';
@@ -129,6 +163,7 @@ export class PaymentFormComponent implements OnChanges {
       salesOrderId: this.salesOrderId || null,
       purchaseOrderId: this.purchaseOrderId || null,
       method: Number(this.method),
+      paymentAccountId: this.paymentAccountId || null,
       direction: Number(this.direction),
       amount: this.amount,
       paymentDate: this.paymentDate,
@@ -156,7 +191,10 @@ export class PaymentFormComponent implements OnChanges {
   }
 
   private loadDropdownData() {
-    this.api.getAll<SalesOrder>('salesorders', 1, 1000).subscribe(data => this.salesOrders.set(data.items));
+    this.api.getAll<SalesOrder>('salesorders', 1, 1000).subscribe(data =>
+      this.salesOrders.set(this.customerId
+        ? data.items.filter(so => (so as any).customerId === this.customerId)
+        : data.items));
     this.api.getAll<PurchaseOrder>('purchaseorders', 1, 1000).subscribe(data => this.purchaseOrders.set(data.items));
   }
 
@@ -164,6 +202,7 @@ export class PaymentFormComponent implements OnChanges {
     this.salesOrderId = '';
     this.purchaseOrderId = '';
     this.method = 0;
+    this.paymentAccountId = '';
     this.direction = 0;
     this.amount = 0;
     this.paymentDate = '';

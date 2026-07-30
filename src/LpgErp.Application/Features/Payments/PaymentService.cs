@@ -38,6 +38,7 @@ public class PaymentService : IPaymentService
             .Where(p => !p.IsDeleted)
             .Include(p => p.SalesOrder)
             .Include(p => p.PurchaseOrder)
+            .Include(p => p.PaymentAccount)
             .OrderByDescending(p => p.PaymentDate);
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -55,6 +56,7 @@ public class PaymentService : IPaymentService
         var entity = await _context.Payments
             .Include(p => p.SalesOrder)
             .Include(p => p.PurchaseOrder)
+            .Include(p => p.PaymentAccount)
             .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, cancellationToken);
 
         if (entity is null) return Result<PaymentDto>.Failure("Payment not found.");
@@ -85,7 +87,7 @@ public class PaymentService : IPaymentService
             var totalPaid = await _context.Payments
                 .Where(p => !p.IsDeleted && p.PurchaseOrderId == poId && p.Direction == PaymentDirection.Outbound)
                 .SumAsync(p => p.Amount, cancellationToken);
-            if (totalPaid + request.Amount > order.TotalAmount + order.TransportationCost - order.CommissionApplied)
+            if (totalPaid + request.Amount > order.NetPayable)
                 return Result<PaymentDto>.Failure($"Payment ({request.Amount:N2}) exceeds outstanding balance.");
         }
 
@@ -93,6 +95,9 @@ public class PaymentService : IPaymentService
             return Result<PaymentDto>.Failure("Inbound payments cannot be linked to a purchase order.");
         if (request.Direction == PaymentDirection.Outbound && request.SalesOrderId is not null)
             return Result<PaymentDto>.Failure("Outbound payments cannot be linked to a sales order.");
+
+        if (await ValidateAccountAsync(request.PaymentAccountId, request.Method, cancellationToken) is string accountError)
+            return Result<PaymentDto>.Failure(accountError);
 
         var entity = _mapper.Map<Payment>(request);
         await _context.Payments.AddAsync(entity, cancellationToken);
@@ -164,13 +169,17 @@ public class PaymentService : IPaymentService
             var totalPaid = await _context.Payments
                 .Where(p => !p.IsDeleted && p.PurchaseOrderId == poId && p.Direction == PaymentDirection.Outbound && p.Id != id)
                 .SumAsync(p => p.Amount, cancellationToken);
-            if (totalPaid + request.Amount > order.TotalAmount + order.TransportationCost - order.CommissionApplied)
+            if (totalPaid + request.Amount > order.NetPayable)
                 return Result<PaymentDto>.Failure($"Payment ({request.Amount:N2}) exceeds outstanding balance.");
         }
+
+        if (await ValidateAccountAsync(request.PaymentAccountId, request.Method, cancellationToken) is string accountError)
+            return Result<PaymentDto>.Failure(accountError);
 
         entity.Amount = request.Amount;
         entity.PaymentDate = request.PaymentDate;
         entity.Method = request.Method;
+        entity.PaymentAccountId = request.PaymentAccountId;
         entity.Direction = request.Direction;
         entity.Reference = request.Reference;
         entity.Notes = request.Notes;
@@ -190,4 +199,7 @@ public class PaymentService : IPaymentService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
+
+    private Task<string?> ValidateAccountAsync(Guid? accountId, PaymentMethod method, CancellationToken cancellationToken) =>
+        PaymentAccountRules.ValidateAsync(_context, accountId, method, cancellationToken);
 }

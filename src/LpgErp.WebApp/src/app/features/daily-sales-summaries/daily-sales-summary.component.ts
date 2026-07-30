@@ -10,7 +10,7 @@ import { EntityListComponent, EntityConfig } from '../../shared/entity-list.comp
 })
 export class DailySalesSummaryComponent {
   readonly config: EntityConfig = {
-    endpoint: 'dailysales',
+    endpoint: 'dailysalessummaries',
     title: 'Daily Sales',
     singular: 'Daily Sales Summary',
     cols: [

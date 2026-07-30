@@ -1,5 +1,6 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.StockTransfer;
+using LpgErp.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +19,7 @@ public class StockTransferController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.Inventory.Transfer)]
     public async Task<IActionResult> Transfer([FromBody] StockTransferRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.TransferAsync(request, cancellationToken);
@@ -26,6 +28,7 @@ public class StockTransferController : ControllerBase
     }
 
     [HttpGet("history")]
+    [Authorize(Policy = AppPermissions.Inventory.View)]
     public async Task<IActionResult> GetHistory([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetHistoryAsync(pageNumber, pageSize, cancellationToken);

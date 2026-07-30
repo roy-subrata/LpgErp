@@ -13,6 +13,7 @@ using LpgErp.Application.Features.Salesmen;
 using LpgErp.Application.Features.PurchaseOrders;
 using LpgErp.Application.Features.SalesOrders;
 using LpgErp.Application.Features.Payments;
+using LpgErp.Application.Features.PaymentAccounts;
 using LpgErp.Application.Features.Routes;
 using LpgErp.Application.Features.VehicleLoadings;
 using LpgErp.Application.Features.DriverSettlements;
@@ -26,12 +27,14 @@ using LpgErp.Application.Features.DailySalesSummaries;
 using LpgErp.Application.Features.AdvanceRefills;
 using LpgErp.Application.Features.CustomerCylinderLedger;
 using LpgErp.Application.Features.CustomerGasLedger;
+using LpgErp.Application.Features.CustomerAccount;
 using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.TransportCompanies;
 using LpgErp.Application.Features.VehicleClosings;
 using LpgErp.Application.Features.PriceHistories;
 using LpgErp.Application.Features.CommissionPolicies;
 using LpgErp.Application.Features.CommissionLedgers;
+using LpgErp.Application.Features.Roles;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LpgErp.Application;
@@ -56,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<ISalesOrderService, SalesOrderService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IPaymentAccountService, PaymentAccountService>();
         services.AddScoped<IRouteService, RouteService>();
         services.AddScoped<IVehicleLoadingService, VehicleLoadingService>();
         services.AddScoped<IDriverSettlementService, DriverSettlementService>();
@@ -69,12 +73,14 @@ public static class DependencyInjection
         services.AddScoped<IAdvanceRefillService, AdvanceRefillService>();
         services.AddScoped<ICustomerCylinderLedgerService, CustomerCylinderLedgerService>();
         services.AddScoped<ICustomerGasLedgerService, CustomerGasLedgerService>();
+        services.AddScoped<ICustomerAccountService, CustomerAccountService>();
         services.AddScoped<ICustomerCreditService, CustomerCreditService>();
         services.AddScoped<ITransportCompanyService, TransportCompanyService>();
         services.AddScoped<IVehicleClosingService, VehicleClosingService>();
         services.AddScoped<IPriceHistoryService, PriceHistoryService>();
         services.AddScoped<ICommissionPolicyService, CommissionPolicyService>();
         services.AddScoped<ICommissionLedgerService, CommissionLedgerService>();
+        services.AddScoped<IRoleService, RoleService>();
 
         return services;
     }

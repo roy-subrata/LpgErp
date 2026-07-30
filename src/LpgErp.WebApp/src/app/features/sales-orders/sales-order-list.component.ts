@@ -504,16 +504,44 @@ export class SalesOrderListComponent implements OnInit {
     this.api.getAll<SalesOrder>('salesorders').subscribe(d => this.items.set(d.items));
   }
 
+  // Status: 0 Draft, 1 Confirmed, 2 Delivered, 3 Cancelled. Edit is only offered for Draft — the
+  // backend rejects updates to a confirmed/delivered order, since stock and payments may already
+  // be committed against it.
   getMenuItems(item: any): DropdownMenuItem[] {
-    return [
-      { label: 'View', icon: '→' },
-      { label: 'Edit', icon: '✎' },
-    ];
+    const items: DropdownMenuItem[] = [{ label: 'View', icon: '→' }];
+    if (item.status === 0) {
+      items.push({ label: 'Edit', icon: '✎' });
+      items.push({ label: 'Confirm', icon: '✓' });
+    } else if (item.status === 1) {
+      items.push({ label: 'Deliver', icon: '🚚' });
+    }
+    return items;
   }
 
+  // The menu's length varies with status (Confirm only for Draft, Deliver only for Confirmed), so
+  // the fired index is resolved back through the same list rather than assumed to be fixed.
   onMenuAction(index: number, item: any) {
-    if (index === 0) this.openView(item);
-    else if (index === 1) this.openEdit(item);
+    const label = this.getMenuItems(item)[index]?.label;
+    if (label === 'View') this.openView(item);
+    else if (label === 'Edit') this.openEdit(item);
+    else if (label === 'Confirm') this.onConfirm(item);
+    else if (label === 'Deliver') this.onDeliver(item);
+  }
+
+  onConfirm(item: any) {
+    if (!confirm(`Confirm order ${item.orderNumber}? This locks it for editing.`)) return;
+    this.api.post(`salesorders/${item.id}/confirm`, {}).subscribe({
+      next: () => this.api.getAll<SalesOrder>('salesorders').subscribe(d => this.items.set(d.items)),
+      error: (e) => alert(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Could not confirm this order.'),
+    });
+  }
+
+  onDeliver(item: any) {
+    if (!confirm(`Mark order ${item.orderNumber} as delivered? This moves stock and updates the customer's cylinder balance.`)) return;
+    this.api.post(`salesorders/${item.id}/deliver`, {}).subscribe({
+      next: () => this.api.getAll<SalesOrder>('salesorders').subscribe(d => this.items.set(d.items)),
+      error: (e) => alert(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Could not deliver this order.'),
+    });
   }
 
   formatMoney(val: number): string {

@@ -1,11 +1,14 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.SalesOrders;
 using LpgErp.Application.Features.SalesOrders.DTOs;
+using LpgErp.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class SalesOrdersController : ControllerBase
 {
@@ -17,6 +20,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = AppPermissions.SalesOrders.View)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -26,6 +30,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPermissions.SalesOrders.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
@@ -34,6 +39,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.SalesOrders.Create)]
     public async Task<IActionResult> Create([FromBody] CreateSalesOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CreateAsync(request, cancellationToken);
@@ -42,6 +48,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPermissions.SalesOrders.Edit)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSalesOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, request, cancellationToken);
@@ -50,6 +57,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPermissions.SalesOrders.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeleteAsync(id, cancellationToken);
@@ -58,6 +66,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/confirm")]
+    [Authorize(Policy = AppPermissions.SalesOrders.Edit)]
     public async Task<IActionResult> Confirm(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.ConfirmAsync(id, cancellationToken);
@@ -66,6 +75,7 @@ public class SalesOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/deliver")]
+    [Authorize(Policy = AppPermissions.SalesOrders.Deliver)]
     public async Task<IActionResult> Deliver(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeliverAsync(id, cancellationToken);

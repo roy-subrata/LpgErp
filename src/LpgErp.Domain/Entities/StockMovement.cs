@@ -7,7 +7,10 @@ public enum StockMovementType
     TransferIn = 2,
     TransferOut = 3,
     Adjustment = 4,
-    Return = 5
+    Return = 5,
+
+    /// <summary>Empties or leaking cylinders going back to the company against a purchase order.</summary>
+    PurchaseReturnOut = 6
 }
 
 public class StockMovement : BaseEntity

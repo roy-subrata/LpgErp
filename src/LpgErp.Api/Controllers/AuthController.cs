@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.Auth;
+using LpgErp.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -30,7 +31,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.Create)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -73,7 +74,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("users")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.View)]
     public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var users = await _authService.GetUsersAsync(pageNumber, pageSize);
@@ -81,7 +82,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("users/{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.View)]
     public async Task<IActionResult> GetUser(Guid id)
     {
         var user = await _authService.GetUserAsync(id);
@@ -90,16 +91,16 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("users")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.Create)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         var user = await _authService.CreateUserAsync(request);
-        if (user == null) return BadRequest(ApiResponse.Fail("Username already exists."));
+        if (user == null) return BadRequest(ApiResponse.Fail("Username or email already exists."));
         return Ok(ApiResponse<UserDto>.Ok(user));
     }
 
     [HttpPut("users/{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.Edit)]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request)
     {
         var user = await _authService.UpdateUserAsync(id, request);
@@ -108,7 +109,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpDelete("users/{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.Delete)]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
         var success = await _authService.DeleteUserAsync(id);
@@ -117,7 +118,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("users/{userId:guid}/roles/{roleId:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.ManageRoles)]
     public async Task<IActionResult> AssignRole(Guid userId, Guid roleId)
     {
         var success = await _authService.AssignRoleAsync(userId, roleId);
@@ -126,7 +127,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpDelete("users/{userId:guid}/roles/{roleId:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AppPermissions.Users.ManageRoles)]
     public async Task<IActionResult> RemoveRole(Guid userId, Guid roleId)
     {
         var success = await _authService.RemoveRoleAsync(userId, roleId);

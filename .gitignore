@@ -12,6 +12,9 @@ project.nuget.cache
 *.dbmdl
 *.jfm
 launchSettings.json
+# Tracked on purpose: it sets ASPNETCORE_ENVIRONMENT=Development so a plain
+# `dotnet run` works on a fresh clone. Contains no secrets.
+!src/LpgErp.Api/Properties/launchSettings.json
 
 ## Visual Studio
 .vs/

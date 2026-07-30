@@ -15,8 +15,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.PasswordHash).HasMaxLength(500).IsRequired();
         builder.Property(u => u.FullName).HasMaxLength(200);
         builder.Property(u => u.Phone).HasMaxLength(20);
-        builder.HasIndex(u => u.Username).IsUnique();
-        builder.HasIndex(u => u.Email).IsUnique();
+
+        // Filtered so deleting a user (a soft delete — see DeleteUserAsync) doesn't permanently
+        // reserve their username or email; a plain unique index would block ever reusing it.
+        builder.HasIndex(u => u.Username).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(u => u.Email).IsUnique().HasFilter("[IsDeleted] = 0");
     }
 }
 

@@ -2,6 +2,7 @@ using AutoMapper;
 using LpgErp.Application.Common.Interfaces;
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.CylinderExchanges.DTOs;
+using LpgErp.Application.Features.Payments;
 using LpgErp.Domain.Entities;
 using LpgErp.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +62,10 @@ public class CylinderExchangeService : ICylinderExchangeService
 
     public async Task<Result<CylinderExchangeDto>> CreateAsync(CreateCylinderExchangeRequest request, CancellationToken ct = default)
     {
+        if (request.ExchangeCharge > 0
+            && await PaymentAccountRules.ValidateAsync(_context, request.PaymentAccountId, request.Method, ct) is string accountError)
+            return Result<CylinderExchangeDto>.Failure(accountError);
+
         var entity = _mapper.Map<CylinderExchange>(request);
         entity.Id = Guid.NewGuid();
         entity.ExchangeDate = DateTime.UtcNow;
@@ -80,6 +85,25 @@ public class CylinderExchangeService : ICylinderExchangeService
 
             await ApplyStockAsync(entity, resolved.Data!, +1, ct);
             await _context.CylinderExchanges.AddAsync(entity, ct);
+
+            // The swap fee is revenue collected at the counter, so it belongs in the cash and
+            // wallet balances like any other payment.
+            if (request.ExchangeCharge > 0)
+            {
+                await _context.Payments.AddAsync(new Payment
+                {
+                    CustomerId = request.CustomerId,
+                    CylinderExchange = entity,
+                    Purpose = PaymentPurpose.ExchangeCharge,
+                    Direction = PaymentDirection.Inbound,
+                    Method = request.Method,
+                    PaymentAccountId = request.PaymentAccountId,
+                    Amount = request.ExchangeCharge,
+                    PaymentDate = entity.ExchangeDate,
+                    Notes = "Cylinder exchange charge.",
+                }, ct);
+            }
+
             await _unitOfWork.SaveChangesAsync(ct);
             await _unitOfWork.CommitTransactionAsync(ct);
         }
@@ -143,6 +167,11 @@ public class CylinderExchangeService : ICylinderExchangeService
         {
             // The exchange never happened: the incoming cylinders go back out, the outgoing ones return.
             await ApplyStockAsync(entity, resolved.Data!, -1, ct);
+
+            var linkedPayment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.CylinderExchangeId == id && !p.IsDeleted, ct);
+            if (linkedPayment is not null) _context.Payments.Remove(linkedPayment);
+
             _context.CylinderExchanges.Remove(entity);
             await _unitOfWork.SaveChangesAsync(ct);
             await _unitOfWork.CommitTransactionAsync(ct);

@@ -171,11 +171,87 @@ export interface Payment {
   purchaseOrderId: string;
   purchaseOrderNumber: string;
   method: number;
+  paymentAccountId: string | null;
+  paymentAccountName: string | null;
   direction: number;
   amount: number;
   paymentDate: string;
   reference: string;
   notes: string;
+}
+
+/** A specific wallet or bank account money moves through — see core/payment-methods.ts for `method`. */
+export interface PaymentAccount {
+  id: string;
+  name: string;
+  method: number;
+  accountNumber: string | null;
+  provider: string | null;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export interface CustomerAccountSummary {
+  customerId: string;
+  customerName: string;
+  creditLimit: number;
+  totalBilled: number;
+  totalPaid: number;
+  outstandingDue: number;
+  /** Refundable cylinder security held — a liability, deliberately kept out of the due. */
+  depositHeld: number;
+  cylindersHeld: number;
+  creditUtilization: number;
+  isOverCredit: boolean;
+}
+
+/** Matches StatementLineKind: 0 Sale, 1 Payment, 2 Deposit, 3 DepositRefund, 4 ExchangeCharge. */
+export interface StatementLine {
+  date: string;
+  kind: number;
+  description: string;
+  debit: number;
+  credit: number;
+  amount: number;
+  runningBalance: number;
+  reference: string | null;
+}
+
+export interface CylinderHolding {
+  brandName: string;
+  cylinderSizeName: string;
+  held: number;
+}
+
+export interface CustomerStatement {
+  summary: CustomerAccountSummary;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  closingBalance: number;
+  lines: StatementLine[];
+  cylinders: CylinderHolding[];
+}
+
+export interface CustomerOrder {
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  dueDate: string | null;
+  status: number;
+  isCreditSale: boolean;
+  netAmount: number;
+  paid: number;
+  outstanding: number;
+  isOverdue: boolean;
+}
+
+/** The optional "how was this paid" block sent with a new sales or purchase order. */
+export interface OrderPayment {
+  amount: number;
+  method: number;
+  paymentAccountId: string | null;
+  reference: string | null;
 }
 
 export interface Truck {

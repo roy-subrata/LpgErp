@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DialogComponent } from '../../shared/dialog.component';
 import { ApiService } from '../../core/api.service';
-import { Customer, Warehouse, Product, TransportCompany } from '../../core/models';
+import { Customer, Warehouse, Product, TransportCompany, PaymentAccount } from '../../core/models';
+import { PAYMENT_METHOD_OPTIONS, requiresAccount } from '../../core/payment-methods';
 
 interface SalesItem {
   productId: string;
@@ -11,6 +12,8 @@ interface SalesItem {
   unitPrice: number;
   /** Empties handed over for refill lines. null = full swap (= qty); 0 = advance refill (cylinder owed). */
   emptyReturnedQuantity: number | null;
+  /** How many of those empties are leaking — they go to damaged stock, not good stock. */
+  damagedReturnedQuantity: number;
 }
 
 @Component({
@@ -92,10 +95,47 @@ interface SalesItem {
             <input type="number" placeholder="Qty" [(ngModel)]="item.quantity" [name]="'qty_' + $index" required />
             <input type="number" placeholder="Price" [(ngModel)]="item.unitPrice" [name]="'price_' + $index" required step="0.01" />
             <input type="number" min="0" placeholder="Empty Rtn (= qty)" title="Empties returned for refills. Blank = full swap; 0 = advance refill (cylinder owed)." [(ngModel)]="item.emptyReturnedQuantity" [name]="'ert_' + $index" />
+            <input type="number" min="0" placeholder="Leaking" title="How many returned empties are leaking. They settle the customer's cylinder balance but cannot be refilled." [(ngModel)]="item.damagedReturnedQuantity" [name]="'drt_' + $index" />
             <button type="button" class="btn-remove" (click)="removeItem($index)">&times;</button>
           </div>
         }
         <button type="button" class="btn-add" (click)="addItem()">+ Add Item</button>
+
+        @if (!entityId) {
+          <h4>Payment <span class="optional">— leave the amount at 0 if nothing was collected</span></h4>
+          <div class="form-group">
+            <label for="paidAmount">Amount Received</label>
+            <input id="paidAmount" type="number" min="0" step="0.01" [(ngModel)]="paidAmount" name="paidAmount" />
+            <small class="field-hint">Order total is ৳{{ orderTotal() | number:'1.0-2' }}.</small>
+          </div>
+          @if (paidAmount > 0) {
+            <div class="form-group">
+              <label for="payMethod">Paid By</label>
+              <select id="payMethod" [(ngModel)]="payMethod" name="payMethod" (ngModelChange)="onMethodChange()">
+                @for (m of methodOptions; track m.value) {
+                  <option [ngValue]="m.value">{{ m.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="payAccountId">Account</label>
+              <select id="payAccountId" [(ngModel)]="payAccountId" name="payAccountId">
+                <option value="">{{ accountRequired() ? '-- Select --' : '-- None (cash in hand) --' }}</option>
+                @for (a of accountsForMethod(); track a.id) {
+                  <option [value]="a.id">{{ a.name }}{{ a.accountNumber ? ' · ' + a.accountNumber : '' }}</option>
+                }
+              </select>
+              @if (accountRequired() && accountsForMethod().length === 0) {
+                <small class="field-hint">No active account for this method — add one under Transactions → Payment Accounts.</small>
+              }
+            </div>
+            <div class="form-group">
+              <label for="payReference">Reference</label>
+              <input id="payReference" type="text" [(ngModel)]="payReference" name="payReference" placeholder="bKash TrxID / cheque no." />
+            </div>
+          }
+        }
+
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Saving...' : entityId ? 'Update' : 'Create' }}</button>
@@ -119,6 +159,7 @@ interface SalesItem {
     .btn-primary { background: #1a1a2e; color: white; border-color: #1a1a2e; }
     .btn-secondary { background: white; color: #333; }
     h4 { margin: 1rem 0 0.5rem; font-size: 0.95rem; color: #555; }
+    h4 .optional { font-weight: 400; color: #6b7280; font-size: 0.8rem; }
   `],
 })
 export class SalesOrderFormComponent implements OnChanges {
@@ -137,14 +178,40 @@ export class SalesOrderFormComponent implements OnChanges {
   notes = '';
   dueDate = '';
   transportCompanyId = '';
-  items: SalesItem[] = [{ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null }];
+  items: SalesItem[] = [{ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null, damagedReturnedQuantity: 0 }];
+  paidAmount = 0;
+  payMethod = 0;
+  payAccountId = '';
+  payReference = '';
   customers = signal<Customer[]>([]);
   warehouses = signal<Warehouse[]>([]);
   products = signal<Product[]>([]);
   transportCompanies = signal<TransportCompany[]>([]);
   routes = signal<any[]>([]);
   vehicleLoadings = signal<any[]>([]);
+  paymentAccounts = signal<PaymentAccount[]>([]);
   saving = signal(false);
+
+  readonly methodOptions = PAYMENT_METHOD_OPTIONS;
+
+  orderTotal(): number {
+    return this.items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
+  }
+
+  /** Only accounts of the selected method — a bKash payment can't land in a bank account. */
+  accountsForMethod(): PaymentAccount[] {
+    return this.paymentAccounts().filter(a => a.method === Number(this.payMethod));
+  }
+
+  accountRequired(): boolean {
+    return requiresAccount(Number(this.payMethod));
+  }
+
+  onMethodChange() {
+    if (!this.accountsForMethod().some(a => a.id === this.payAccountId)) {
+      this.payAccountId = '';
+    }
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['open'] && this.open) {
@@ -154,6 +221,7 @@ export class SalesOrderFormComponent implements OnChanges {
       this.api.getAllList<Product>('products').subscribe(data => this.products.set(data));
       this.api.getAllList<TransportCompany>('transportcompanies').subscribe(data => this.transportCompanies.set(data));
       this.api.getAllList<any>('routes').subscribe(data => this.routes.set(data));
+      this.api.getAllList<PaymentAccount>('paymentaccounts').subscribe(data => this.paymentAccounts.set(data));
       // Only dispatched loadings (status 0) can receive mobile sales.
       this.api.getAll<any>('vehicleloadings', 1, 100).subscribe(page =>
         this.vehicleLoadings.set(page.items.filter((vl: any) => vl.status === 0)));
@@ -173,6 +241,7 @@ export class SalesOrderFormComponent implements OnChanges {
               quantity: i.quantity,
               unitPrice: i.unitPrice,
               emptyReturnedQuantity: i.emptyReturnedQuantity ?? null,
+              damagedReturnedQuantity: i.damagedReturnedQuantity ?? 0,
             }));
           }
         });
@@ -181,7 +250,7 @@ export class SalesOrderFormComponent implements OnChanges {
   }
 
   addItem() {
-    this.items.push({ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null });
+    this.items.push({ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null, damagedReturnedQuantity: 0 });
   }
 
   removeItem(index: number) {
@@ -206,7 +275,17 @@ export class SalesOrderFormComponent implements OnChanges {
         quantity: i.quantity,
         unitPrice: i.unitPrice,
         emptyReturnedQuantity: i.emptyReturnedQuantity === null || (i.emptyReturnedQuantity as any) === '' ? null : i.emptyReturnedQuantity,
+        damagedReturnedQuantity: Number(i.damagedReturnedQuantity) || 0,
       })),
+      // Only sent on create — an existing order's payments are edited from the Payments screen.
+      payment: !this.entityId && Number(this.paidAmount) > 0
+        ? {
+            amount: Number(this.paidAmount),
+            method: Number(this.payMethod),
+            paymentAccountId: this.payAccountId || null,
+            reference: this.payReference || null,
+          }
+        : null,
     };
 
     const req$ = this.entityId
@@ -237,6 +316,10 @@ export class SalesOrderFormComponent implements OnChanges {
     this.notes = '';
     this.dueDate = '';
     this.transportCompanyId = '';
-    this.items = [{ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null }];
+    this.items = [{ productId: '', quantity: 0, unitPrice: 0, emptyReturnedQuantity: null, damagedReturnedQuantity: 0 }];
+    this.paidAmount = 0;
+    this.payMethod = 0;
+    this.payAccountId = '';
+    this.payReference = '';
   }
 }

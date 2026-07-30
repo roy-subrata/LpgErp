@@ -25,6 +25,7 @@ public static class DbSeeder
         await SeedTrucksAsync(db, ct);
         await SeedTransportCompaniesAsync(db, ct);
         await SeedStockLevelsAsync(db, ct);
+        await SeedPaymentAccountsAsync(db, ct);
         await SeedTransactionsAsync(db, ct);
         await SeedCommissionDataAsync(db, ct);
     }
@@ -116,7 +117,12 @@ public static class DbSeeder
     private static async Task SeedProductsAsync(LpgErpDbContext db, Dictionary<string, Brand> brands, List<CylinderSize> sizes, CancellationToken ct)
     {
         if (await db.Products.AnyAsync(ct))
+        {
+            // Earlier seeds created refills and packages but no empty cylinders, so there was nothing
+            // to swap with the company or to exchange between brands. Fill that gap in place.
+            await SeedMissingEmptyCylindersAsync(db, brands, sizes, ct);
             return;
+        }
 
         var products = new List<Product>();
         foreach (var brand in brands.Values)
@@ -138,12 +144,76 @@ public static class DbSeeder
                     PurchasePrice = (basePrice + size.DepositAmount) * 0.9m, SalePrice = basePrice + size.DepositAmount,
                     CurrentStock = 40, MinimumStock = 10, IsActive = true,
                 });
+                products.Add(NewEmptyCylinder(brand, size));
             }
         }
         products.Add(new Product { Id = Guid.NewGuid(), Name = "Regulator (22mm)", Code = "ACC-REG", Type = ProductType.Accessory, PurchasePrice = 220m, SalePrice = 350m, CurrentStock = 200, MinimumStock = 50, IsActive = true });
         products.Add(new Product { Id = Guid.NewGuid(), Name = "Gas Hose (1.5m)", Code = "ACC-HOSE", Type = ProductType.Accessory, PurchasePrice = 90m, SalePrice = 160m, CurrentStock = 300, MinimumStock = 60, IsActive = true });
 
         db.Products.AddRange(products);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// The empty cylinder is a distinct asset from the gas inside it, so it needs its own product
+    /// per brand and size — that is what a refill swap, a brand exchange, and a leakage return move.
+    /// </summary>
+    private static Product NewEmptyCylinder(Brand brand, CylinderSize size) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = $"{brand.Name} {size.Name} Empty Cylinder",
+        Code = $"{brand.Code}-{size.WeightKg:0}-E",
+        Type = ProductType.EmptyCylinder,
+        BrandId = brand.Id,
+        CylinderSizeId = size.Id,
+        PurchasePrice = size.DepositAmount * 0.9m,
+        SalePrice = size.DepositAmount,
+        CurrentStock = 60,
+        MinimumStock = 15,
+        IsActive = true,
+    };
+
+    private static async Task SeedMissingEmptyCylindersAsync(LpgErpDbContext db, Dictionary<string, Brand> brands, List<CylinderSize> sizes, CancellationToken ct)
+    {
+        var existing = await db.Products
+            .Where(p => !p.IsDeleted && p.Type == ProductType.EmptyCylinder)
+            .Select(p => new { p.BrandId, p.CylinderSizeId })
+            .ToListAsync(ct);
+
+        var have = existing.Select(e => (e.BrandId, e.CylinderSizeId)).ToHashSet();
+        var missing = new List<Product>();
+
+        foreach (var brand in brands.Values)
+        {
+            foreach (var size in sizes.Where(s => s.BrandId == brand.Id))
+            {
+                if (have.Contains((brand.Id, (Guid?)size.Id))) continue;
+                missing.Add(NewEmptyCylinder(brand, size));
+            }
+        }
+
+        if (missing.Count == 0) return;
+
+        db.Products.AddRange(missing);
+        await db.SaveChangesAsync(ct);
+
+        // Place the opening stock in the main warehouse so the counts agree with the company total.
+        var mainWarehouse = await db.Warehouses.OrderBy(w => w.CreatedAt).FirstOrDefaultAsync(ct);
+        if (mainWarehouse is null) return;
+
+        foreach (var product in missing)
+        {
+            db.StockLevels.Add(new StockLevel
+            {
+                WarehouseId = mainWarehouse.Id,
+                ProductId = product.Id,
+                Quantity = product.CurrentStock,
+                // A few leaking ones on hand, so returning them to the company can be tried out.
+                DamagedQuantity = 4,
+            });
+            product.DamagedStock = 4;
+        }
+
         await db.SaveChangesAsync(ct);
     }
 
@@ -257,10 +327,34 @@ public static class DbSeeder
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Seeds the wallets and bank accounts money actually moves through. The method on a payment
+    /// says "mobile banking"; the account says "which bKash wallet", which is what reconciliation needs.
+    /// </summary>
+    private static async Task SeedPaymentAccountsAsync(LpgErpDbContext db, CancellationToken ct)
+    {
+        if (await db.PaymentAccounts.AnyAsync(ct))
+            return;
+
+        db.PaymentAccounts.AddRange(
+            new PaymentAccount { Id = Guid.NewGuid(), Name = "Cash Counter", Method = PaymentMethod.Cash, Notes = "Cash in hand at the depot counter." },
+            new PaymentAccount { Id = Guid.NewGuid(), Name = "bKash Merchant", Method = PaymentMethod.MobileBanking, Provider = "bKash", AccountNumber = "01711000001" },
+            new PaymentAccount { Id = Guid.NewGuid(), Name = "Nagad Merchant", Method = PaymentMethod.MobileBanking, Provider = "Nagad", AccountNumber = "01811000002" },
+            new PaymentAccount { Id = Guid.NewGuid(), Name = "Rocket Merchant", Method = PaymentMethod.MobileBanking, Provider = "Rocket", AccountNumber = "01911000003" },
+            new PaymentAccount { Id = Guid.NewGuid(), Name = "City Bank Current", Method = PaymentMethod.Bank, Provider = "City Bank", AccountNumber = "1402000012345" });
+
+        await db.SaveChangesAsync(ct);
+    }
+
     private static async Task SeedTransactionsAsync(LpgErpDbContext db, CancellationToken ct)
     {
         if (await db.SalesOrders.AnyAsync(ct))
             return;
+
+        var paymentAccounts = await db.PaymentAccounts.Where(a => !a.IsDeleted).ToListAsync(ct);
+        var cashAccountId = paymentAccounts.FirstOrDefault(a => a.Method == PaymentMethod.Cash)?.Id;
+        var bankAccountId = paymentAccounts.FirstOrDefault(a => a.Method == PaymentMethod.Bank)?.Id;
+        var mfsAccounts = paymentAccounts.Where(a => a.Method == PaymentMethod.MobileBanking).ToList();
 
         var customers = await db.Customers.Where(c => !c.IsDeleted).ToListAsync(ct);
         var warehouses = await db.Warehouses.Where(w => !w.IsDeleted).ToListAsync(ct);
@@ -324,13 +418,15 @@ public static class DbSeeder
                 var net = total - discount;
                 if (!isCredit)
                 {
-                    payments.Add(new Payment { Id = Guid.NewGuid(), SalesOrderId = so.Id, Method = PaymentMethod.Cash, Direction = PaymentDirection.Inbound, Amount = net, PaymentDate = so.OrderDate, Reference = $"RCP-{seq:D5}" });
+                    payments.Add(new Payment { Id = Guid.NewGuid(), SalesOrderId = so.Id, Method = PaymentMethod.Cash, PaymentAccountId = cashAccountId, Direction = PaymentDirection.Inbound, Amount = net, PaymentDate = so.OrderDate, Reference = $"RCP-{seq:D5}" });
                 }
                 else if (rnd.Next(100) < 60)
                 {
                     var paid = Math.Round(net * 0.5m, 0);
-                    var method = rnd.Next(2) == 0 ? PaymentMethod.MobileBanking : PaymentMethod.Bank;
-                    payments.Add(new Payment { Id = Guid.NewGuid(), SalesOrderId = so.Id, Method = method, Direction = PaymentDirection.Inbound, Amount = paid, PaymentDate = so.OrderDate.AddDays(2), Reference = $"RCP-{seq:D5}" });
+                    var payByMfs = rnd.Next(2) == 0 && mfsAccounts.Count > 0;
+                    var method = payByMfs ? PaymentMethod.MobileBanking : PaymentMethod.Bank;
+                    var accountId = payByMfs ? mfsAccounts[rnd.Next(mfsAccounts.Count)].Id : bankAccountId;
+                    payments.Add(new Payment { Id = Guid.NewGuid(), SalesOrderId = so.Id, Method = method, PaymentAccountId = accountId, Direction = PaymentDirection.Inbound, Amount = paid, PaymentDate = so.OrderDate.AddDays(2), Reference = $"RCP-{seq:D5}" });
                 }
             }
         }

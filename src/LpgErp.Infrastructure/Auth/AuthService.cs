@@ -47,10 +47,10 @@ public class AuthService : IAuthService
 
     public async Task<AuthResult> RegisterAsync(RegisterRequest request, string? ipAddress = null)
     {
-        if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+        if (await _context.Users.AnyAsync(u => !u.IsDeleted && u.Username == request.Username))
             return new AuthResult { IsSuccess = false, Error = "Username already exists" };
 
-        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+        if (await _context.Users.AnyAsync(u => !u.IsDeleted && u.Email == request.Email))
             return new AuthResult { IsSuccess = false, Error = "Email already exists" };
 
         var user = new User
@@ -145,14 +145,17 @@ public class AuthService : IAuthService
         var user = await _context.Users
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .ThenInclude(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
 
         return user == null ? null : MapToDto(user);
     }
 
     public async Task<List<UserDto>> GetUsersAsync(int pageNumber, int pageSize)
     {
+        // Without this filter a deleted user never actually left the list — DeleteUserAsync only
+        // sets IsDeleted, so the row is still there for GetAll to pick back up.
         var users = await _context.Users
+            .Where(u => !u.IsDeleted)
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .ThenInclude(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
             .OrderBy(u => u.Username)
@@ -165,7 +168,11 @@ public class AuthService : IAuthService
 
     public async Task<UserDto?> CreateUserAsync(CreateUserRequest request)
     {
-        if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+        // Both fields carry a filtered unique index (soft-deleted rows excluded) — checked here too
+        // so a collision surfaces as a clean validation error instead of an unhandled DB exception.
+        if (await _context.Users.AnyAsync(u => !u.IsDeleted && u.Username == request.Username))
+            return null;
+        if (await _context.Users.AnyAsync(u => !u.IsDeleted && u.Email == request.Email))
             return null;
 
         var user = new User
@@ -200,7 +207,14 @@ public class AuthService : IAuthService
         if (request.Email != null) user.Email = request.Email;
         if (request.FullName != null) user.FullName = request.FullName;
         if (request.Phone != null) user.Phone = request.Phone;
-        if (request.IsActive.HasValue) user.IsActive = request.IsActive.Value;
+
+        // The UI already disables this for your own account, but that's client-side only — without
+        // this check the same call made directly against the API would still deactivate the one
+        // account making the request, with no other admin necessarily available to undo it.
+        var isSelf = id.ToString() == _currentUserService.UserId;
+        if (request.IsActive.HasValue && !(request.IsActive.Value == false && isSelf))
+            user.IsActive = request.IsActive.Value;
+
         if (!string.IsNullOrEmpty(request.NewPassword)) user.PasswordHash = HashPassword(request.NewPassword);
 
         await _context.SaveChangesAsync();
@@ -209,6 +223,9 @@ public class AuthService : IAuthService
 
     public async Task<bool> DeleteUserAsync(Guid id)
     {
+        // Same reasoning as the deactivate guard above: block it at the source, not just in the UI.
+        if (id.ToString() == _currentUserService.UserId) return false;
+
         var user = await _context.Users.FindAsync(id);
         if (user == null) return false;
 

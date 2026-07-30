@@ -1,11 +1,14 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.VehicleLoadings;
 using LpgErp.Application.Features.VehicleLoadings.DTOs;
+using LpgErp.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LpgErp.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/[controller]")]
 public class VehicleLoadingsController : ControllerBase
 {
@@ -17,6 +20,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = AppPermissions.VehicleLoading.View)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -26,6 +30,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPermissions.VehicleLoading.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
@@ -34,6 +39,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.VehicleLoading.Create)]
     public async Task<IActionResult> Create([FromBody] CreateVehicleLoadingRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CreateAsync(request, cancellationToken);
@@ -42,6 +48,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPermissions.VehicleLoading.Edit)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateVehicleLoadingRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, request, cancellationToken);
@@ -50,6 +57,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPermissions.VehicleLoading.Delete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeleteAsync(id, cancellationToken);
@@ -58,6 +66,7 @@ public class VehicleLoadingsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/close")]
+    [Authorize(Policy = AppPermissions.VehicleLoading.Close)]
     public async Task<IActionResult> Close(Guid id, [FromBody] CreateVehicleClosingRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CloseAsync(id, request, cancellationToken);

@@ -20,6 +20,10 @@ public class Product : BaseEntity
     public decimal PurchasePrice { get; set; }
     public decimal SalePrice { get; set; }
     public int CurrentStock { get; set; }
+
+    /// <summary>Company-wide count of leaking/unusable units held, awaiting return to the supplier.</summary>
+    public int DamagedStock { get; set; }
+
     public int MinimumStock { get; set; }
     public bool IsActive { get; set; } = true;
 }

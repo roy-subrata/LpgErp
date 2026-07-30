@@ -57,6 +57,24 @@ export const routes: Routes = [
       import('./features/customers/customer-list.component').then(m => m.CustomerListComponent),
   },
   {
+    path: 'customers/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/customer-account/customer-account.component').then(m => m.CustomerAccountComponent),
+  },
+  {
+    path: 'users',
+    canActivate: [authGuard, roleGuard('Admin')],
+    loadComponent: () =>
+      import('./features/users/user-list.component').then(m => m.UserListComponent),
+  },
+  {
+    path: 'roles',
+    canActivate: [authGuard, roleGuard('Admin')],
+    loadComponent: () =>
+      import('./features/roles/role-list.component').then(m => m.RoleListComponent),
+  },
+  {
     path: 'salesmen',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -133,6 +151,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/payments/payment-list.component').then(m => m.PaymentListComponent),
+  },
+  {
+    path: 'payment-accounts',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/payment-accounts/payment-account-list.component').then(m => m.PaymentAccountListComponent),
   },
   {
     path: 'stock-transfers',

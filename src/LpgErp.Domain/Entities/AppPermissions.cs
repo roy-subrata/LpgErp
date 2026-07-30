@@ -16,6 +16,10 @@ public static class AppPermissions
         public const string Create = "salesorders.create";
         public const string Edit = "salesorders.edit";
         public const string Delete = "salesorders.delete";
+
+        /// <summary>Marking a sale delivered draws down stock and updates the customer's cylinder
+        /// ledger — a workflow transition, kept distinct from Edit for the same reason as Receive.</summary>
+        public const string Deliver = "salesorders.deliver";
     }
 
     public static class PurchaseOrders
@@ -24,6 +28,10 @@ public static class AppPermissions
         public const string Create = "purchaseorders.create";
         public const string Edit = "purchaseorders.edit";
         public const string Delete = "purchaseorders.delete";
+
+        /// <summary>Receiving goods is a workflow transition, not a general edit — Warehouse holds
+        /// this without holding Edit, the same way Settlements.Approve differs from Edit.</summary>
+        public const string Receive = "purchaseorders.receive";
     }
 
     public static class Payments
@@ -66,6 +74,10 @@ public static class AppPermissions
         public const string Create = "vehicleloading.create";
         public const string Edit = "vehicleloading.edit";
         public const string Delete = "vehicleloading.delete";
+
+        /// <summary>Closing out a loading is the driver's own end-of-day workflow step, not a
+        /// general edit — Drivers hold this without holding Edit.</summary>
+        public const string Close = "vehicleloading.close";
     }
 
     public static class Settlements

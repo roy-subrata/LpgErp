@@ -31,6 +31,16 @@ public class PurchaseOrder : BaseEntity
     public decimal TransportationCost { get; set; }
     public DateTime? DueDate { get; set; }
 
+    /// <summary>Money the company took off the bill for leaking cylinders returned with this order.</summary>
+    public decimal LeakageCredit { get; set; }
+
+    /// <summary>
+    /// What is actually owed on this order, after the supplier's commission and any leakage credit.
+    /// Every payable check uses this, so a credit cannot be forgotten in one place and applied in another.
+    /// </summary>
+    public decimal NetPayable => TotalAmount + TransportationCost - CommissionApplied - LeakageCredit;
+
     public ICollection<PurchaseOrderItem> Items { get; set; } = [];
+    public ICollection<PurchaseOrderLeakage> Leakages { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
 }

@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -191,10 +192,21 @@ export class LoginComponent {
           this.error.set(result.error || 'Login failed');
         }
       },
-      error: (err) => {
+      error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.error.set(err.error?.errors?.[0] || 'Invalid credentials');
+        this.error.set(this.messageFor(err));
       }
     });
+  }
+
+  private messageFor(err: HttpErrorResponse): string {
+    const fromApi = err.error?.errors?.[0];
+    if (fromApi) return fromApi;
+
+    switch (err.status) {
+      case 429: return 'Too many login attempts. Please wait a minute and try again.';
+      case 0: return 'Cannot reach the server. Check that the API is running.';
+      default: return 'Invalid credentials';
+    }
   }
 }

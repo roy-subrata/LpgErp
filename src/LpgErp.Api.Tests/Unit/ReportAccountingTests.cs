@@ -1,6 +1,7 @@
 using AutoMapper;
 using FluentAssertions;
 using LpgErp.Application.Common.Mappings;
+using LpgErp.Application.Features.CustomerAccount;
 using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.CustomerGasLedger;
 using LpgErp.Application.Features.Reports;
@@ -162,7 +163,7 @@ public class ReportAccountingTests
         );
         await context.SaveChangesAsync();
 
-        var aging = (await new CustomerCreditService(context).GetCreditAgingAsync()).Data!;
+        var aging = (await new CustomerCreditService(context, new CustomerAccountService(context)).GetCreditAgingAsync()).Data!;
 
         aging.TotalCurrent.Should().Be(100m);
         aging.TotalDays30.Should().Be(200m);
@@ -178,7 +179,7 @@ public class ReportAccountingTests
         context.SalesOrders.Add(Order(SalesOrderStatus.Delivered, 5000m, credit: false).DueOn(DateTime.UtcNow.AddDays(-40)));
         await context.SaveChangesAsync();
 
-        var aging = (await new CustomerCreditService(context).GetCreditAgingAsync()).Data!;
+        var aging = (await new CustomerCreditService(context, new CustomerAccountService(context)).GetCreditAgingAsync()).Data!;
 
         aging.Entries.Should().BeEmpty();
     }
@@ -202,7 +203,7 @@ public class ReportAccountingTests
         });
         await context.SaveChangesAsync();
 
-        var ledger = (await new CustomerGasLedgerService(context).GetCustomerLedgerAsync(_customerId)).Data!;
+        var ledger = (await new CustomerGasLedgerService(context, new CustomerAccountService(context)).GetCustomerLedgerAsync(_customerId)).Data!;
 
         // Newest first for display; balances read chronologically as 1000 -> 600 -> 1100.
         var rows = ledger.RecentTransactions;
@@ -220,7 +221,7 @@ public class ReportAccountingTests
         context.SalesOrders.Add(Order(SalesOrderStatus.Delivered, 1000m, discount: 250m));
         await context.SaveChangesAsync();
 
-        var ledger = (await new CustomerGasLedgerService(context).GetCustomerLedgerAsync(_customerId)).Data!;
+        var ledger = (await new CustomerGasLedgerService(context, new CustomerAccountService(context)).GetCustomerLedgerAsync(_customerId)).Data!;
 
         ledger.OutstandingBalance.Should().Be(750m);
     }

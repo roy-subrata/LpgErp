@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EntityDrawerComponent, DrawerField } from '../../shared/entity-drawer.component';
@@ -88,7 +88,7 @@ import { CustomerReport, FinancialReport } from '../../core/models';
               <tr class="data-row" (click)="openView(item)">
                 <td>
                   <div class="main-cell">
-                    <span class="main-text">{{ item.name }}</span>
+                    <a class="main-text name-link" [routerLink]="['/customers', item.id]" (click)="$event.stopPropagation()">{{ item.name }}</a>
                     <span class="sub-text">{{ item.code }} · {{ item.contactPerson }}</span>
                   </div>
                 </td>
@@ -142,6 +142,8 @@ import { CustomerReport, FinancialReport } from '../../core/models';
     />
   `,
   styles: [`
+    .name-link { color: inherit; text-decoration: none; cursor: pointer; }
+    .name-link:hover { color: #ea580c; text-decoration: underline; }
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); margin: 0; }
     .header-actions { display: flex; gap: 8px; }
@@ -192,6 +194,7 @@ import { CustomerReport, FinancialReport } from '../../core/models';
 })
 export class CustomerListComponent implements OnInit {
   private api = inject(ApiService);
+  private router = inject(Router);
 
   Math = Math;
   pageSize = 15;
@@ -320,6 +323,7 @@ export class CustomerListComponent implements OnInit {
 
   getMenuItems(item: any): DropdownMenuItem[] {
     return [
+      { label: 'Account & Statement', icon: '▤' },
       { label: 'View', icon: '→' },
       { label: 'Edit', icon: '✎' },
       { label: 'Delete', icon: '🗑', danger: true },
@@ -327,8 +331,9 @@ export class CustomerListComponent implements OnInit {
   }
 
   onMenuAction(index: number, item: any) {
-    if (index === 0) this.openView(item);
-    else if (index === 1) this.openEdit(item);
+    if (index === 0) this.router.navigate(['/customers', item.id]);
+    else if (index === 1) this.openView(item);
+    else if (index === 2) this.openEdit(item);
     else this.onDelete(item);
   }
 

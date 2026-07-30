@@ -1,5 +1,6 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using LpgErp.Api.Authorization;
 using LpgErp.Api.Filters;
 using LpgErp.Api.Middleware;
 using LpgErp.Infrastructure;
@@ -7,7 +8,10 @@ using LpgErp.Infrastructure.Auth;
 using LpgErp.Infrastructure.Hubs;
 using LpgErp.Infrastructure.Persistence;
 using LpgErp.Application;
+using LpgErp.Application.Common.Models;
+using LpgErp.Domain.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -50,6 +54,26 @@ try
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        // Without this the limiter returns an empty 429 body, so the client can't tell
+        // "too many attempts" apart from "wrong credentials".
+        options.OnRejected = async (context, ct) =>
+        {
+            var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var window)
+                ? (int)Math.Ceiling(window.TotalSeconds)
+                : 60;
+
+            context.HttpContext.Response.Headers.RetryAfter = retryAfter.ToString();
+            context.HttpContext.Response.ContentType = "application/json";
+
+            Log.Warning("Rate limit hit on {Path} from {Ip}",
+                context.HttpContext.Request.Path,
+                context.HttpContext.Connection.RemoteIpAddress?.ToString());
+
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                ApiResponse.Fail($"Too many attempts. Please try again in {retryAfter} second{(retryAfter == 1 ? "" : "s")}."),
+                ct);
+        };
 
         options.AddPolicy("auth-strict", httpContext =>
         {
@@ -140,7 +164,31 @@ try
         };
     });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+    builder.Services.AddAuthorization(options =>
+    {
+        // Receiving/delivering/closing are workflow transitions on a resource someone can already
+        // Edit — holding Edit is enough to do them too, so these three policies accept either
+        // permission rather than just the one matching the policy's own name.
+        var impliedByEdit = new Dictionary<string, string>
+        {
+            [AppPermissions.PurchaseOrders.Receive] = AppPermissions.PurchaseOrders.Edit,
+            [AppPermissions.SalesOrders.Deliver] = AppPermissions.SalesOrders.Edit,
+            [AppPermissions.VehicleLoading.Close] = AppPermissions.VehicleLoading.Edit,
+        };
+
+        // One policy per known permission, named after the permission string itself, so an action
+        // just writes [Authorize(Policy = AppPermissions.Customers.View)] — the compiler catches a
+        // typo'd permission name the way a raw string never would.
+        foreach (var permission in AppPermissions.GetAll())
+        {
+            var anyOf = impliedByEdit.TryGetValue(permission, out var editEquivalent)
+                ? [permission, editEquivalent]
+                : new[] { permission };
+
+            options.AddPolicy(permission, policy => policy.Requirements.Add(new PermissionRequirement(anyOf)));
+        }
+    });
 
     var app = builder.Build();
 

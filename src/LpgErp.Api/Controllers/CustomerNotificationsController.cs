@@ -1,6 +1,7 @@
 using LpgErp.Application.Common.Models;
 using LpgErp.Application.Features.CustomerNotifications;
 using LpgErp.Application.Features.CustomerNotifications.DTOs;
+using LpgErp.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +20,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = AppPermissions.Notifications.View)]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var result = await _service.GetAllAsync(pageNumber, pageSize, cancellationToken);
@@ -28,6 +30,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpGet("customer/{customerId:guid}")]
+    [Authorize(Policy = AppPermissions.Notifications.View)]
     public async Task<IActionResult> GetByCustomer(Guid customerId, CancellationToken cancellationToken)
     {
         var result = await _service.GetByCustomerAsync(customerId, cancellationToken);
@@ -37,6 +40,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AppPermissions.Notifications.Manage)]
     public async Task<IActionResult> Create([FromBody] CreateCustomerNotificationRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.CreateAsync(request, cancellationToken);
@@ -45,6 +49,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Notifications.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
@@ -53,6 +58,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Notifications.Manage)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerNotificationRequest request, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, request, cancellationToken);
@@ -61,6 +67,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPermissions.Notifications.Manage)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.DeleteAsync(id, cancellationToken);
@@ -69,6 +76,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/read")]
+    [Authorize(Policy = AppPermissions.Notifications.Manage)]
     public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken cancellationToken)
     {
         var result = await _service.MarkAsReadAsync(id, cancellationToken);
@@ -77,6 +85,7 @@ public class CustomerNotificationsController : ControllerBase
     }
 
     [HttpPost("generate")]
+    [Authorize(Policy = AppPermissions.Notifications.Send)]
     public async Task<IActionResult> Generate(CancellationToken cancellationToken)
     {
         var result = await _service.GenerateAsync(cancellationToken);

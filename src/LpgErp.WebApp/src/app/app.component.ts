@@ -1,14 +1,17 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, computed, effect, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { NotificationHubService } from './core/notification-hub.service';
 import { ToastComponent } from './features/toast/toast.component';
+import { NotificationPanelComponent } from './shared/notification-panel.component';
 
 interface NavItem {
   label: string;
   icon: string;
   route: string;
+  /** Hidden from the sidebar for anyone without the Admin role — the route itself is guarded too. */
+  adminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -19,8 +22,9 @@ interface NavGroup {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastComponent, NotificationPanelComponent],
   template: `
+    @if (showShell()) {
     <div class="app-shell">
       <nav class="sidebar" [class.collapsed]="sidebarCollapsed()">
         <div class="sidebar-header">
@@ -35,18 +39,22 @@ interface NavGroup {
 
         <div class="nav-body">
           @for (group of navGroups; track group.title) {
+            @if (groupVisible(group)) {
             @if (!sidebarCollapsed()) {
               <div class="nav-group-label">{{ group.title }}</div>
             } @else {
               <div class="nav-group-divider"></div>
             }
             @for (item of group.items; track item.route) {
-              <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
-                <span class="nav-icon">{{ item.icon }}</span>
-                @if (!sidebarCollapsed()) {
-                  <span class="nav-label">{{ item.label }}</span>
-                }
-              </a>
+              @if (!item.adminOnly || isAdmin()) {
+                <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
+                  <span class="nav-icon">{{ item.icon }}</span>
+                  @if (!sidebarCollapsed()) {
+                    <span class="nav-label">{{ item.label }}</span>
+                  }
+                </a>
+              }
+            }
             }
           }
         </div>
@@ -81,12 +89,15 @@ interface NavGroup {
               <input type="text" placeholder="Search..." class="search-input" />
               <span class="search-shortcut">⌘K</span>
             </div>
-            <button class="bell-btn" (click)="clearNotifications()">
-              🔔
-              @if (unreadCount() > 0) {
-                <span class="bell-badge">{{ unreadCount() }}</span>
-              }
-            </button>
+            <div class="bell-wrap">
+              <button class="bell-btn" (click)="toggleNotifications($event)">
+                🔔
+                @if (unreadCount() > 0) {
+                  <span class="bell-badge">{{ unreadCount() }}</span>
+                }
+              </button>
+              <app-notification-panel [open]="notificationsOpen()" (openChange)="notificationsOpen.set($event)" />
+            </div>
           </div>
         </header>
 
@@ -95,6 +106,9 @@ interface NavGroup {
         </main>
       </div>
     </div>
+    } @else {
+      <router-outlet />
+    }
     <app-toast />
   `,
   styles: [`
@@ -397,6 +411,10 @@ interface NavGroup {
       padding: 1px 5px;
     }
 
+    .bell-wrap {
+      position: relative;
+    }
+
     .bell-btn {
       position: relative;
       width: 34px;
@@ -440,48 +458,62 @@ interface NavGroup {
     }
   `],
 })
-export class AppComponent implements OnInit {
-  sidebarCollapsed = signal(false);
+export class AppComponent {
+  private authService = inject(AuthService);
+  private notificationHub = inject(NotificationHubService);
 
-  constructor(
-    private authService: AuthService,
-    private notificationHub: NotificationHubService,
-    router: Router
-  ) {
+  sidebarCollapsed = signal(false);
+  private onLoginRoute = signal(false);
+
+  // The sidebar and topbar are chrome for signed-in users. The login page is a
+  // top-level route sharing this outlet, so it has to render bare.
+  showShell = computed(() => this.authService.isAuthenticated() && !this.onLoginRoute());
+
+  // Derived from the auth signal rather than read once at startup — this component
+  // is the root and is never re-created, so after login there is no second ngOnInit
+  // to pick the user up.
+  userName = computed(() => {
+    const user = this.authService.currentUser();
+    return user ? user.fullName || user.username : '';
+  });
+  userInitials = computed(() =>
+    this.userName().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  );
+  userRole = computed(() => this.authService.currentUser()?.roles[0] || 'User');
+  unreadCount = this.notificationHub.unreadCount;
+  notificationsOpen = signal(false);
+  isAdmin = computed(() => this.authService.currentUser()?.roles.includes('Admin') ?? false);
+
+  // Hides a group entirely once every item in it is admin-only and the viewer isn't one —
+  // otherwise "Administration" would show as an empty heading with nothing underneath it.
+  groupVisible(group: NavGroup): boolean {
+    return group.items.some(item => !item.adminOnly || this.isAdmin());
+  }
+
+  constructor(router: Router) {
+    // Connect once the user is authenticated, which for a fresh login happens long
+    // after construction. start() is a no-op when already connected.
+    effect(() => {
+      if (this.authService.isAuthenticated()) {
+        this.notificationHub.start();
+      }
+    });
+
     router.events.pipe(
       filter(e => e instanceof NavigationEnd),
       map((e: any) => {
-        const seg = e.urlAfterRedirects || e.url;
-        const path = seg.split('/').filter(Boolean)[0] || 'dashboard';
-        return this.routeLabelMap[path] || 'Dashboard';
+        const url: string = e.urlAfterRedirects || e.url;
+        return url.split(/[?#]/)[0].split('/').filter(Boolean)[0] || 'dashboard';
       }),
-    ).subscribe(label => this.currentPageLabel.set(label));
+    ).subscribe(path => {
+      this.onLoginRoute.set(path === 'login');
+      this.currentPageLabel.set(this.routeLabelMap[path] || 'Dashboard');
+    });
   }
 
-  userInitials = signal('');
-  userName = signal('');
-  userRole = signal('');
-  unreadCount = signal(0);
-
-  ngOnInit() {
-    if (this.authService.isAuthenticated()) {
-      this.notificationHub.start();
-      setInterval(() => {
-        this.unreadCount.set(this.notificationHub.unreadCount());
-      }, 1000);
-    }
-    const user = this.authService.currentUser();
-    if (user) {
-      const name = user.fullName || user.username;
-      this.userName.set(name);
-      this.userInitials.set(name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2));
-      this.userRole.set(user.roles[0] || 'User');
-    }
-  }
-
-  clearNotifications() {
-    this.notificationHub.clearUnread();
-    this.unreadCount.set(0);
+  toggleNotifications(event: MouseEvent) {
+    event.stopPropagation();
+    this.notificationsOpen.update(v => !v);
   }
 
   logout() {
@@ -514,6 +546,7 @@ export class AppComponent implements OnInit {
         { label: 'Sales Orders', icon: '📋', route: 'sales-orders' },
         { label: 'Purchase Orders', icon: '📦', route: 'purchase-orders' },
         { label: 'Payments', icon: '৳', route: 'payments' },
+        { label: 'Payment Accounts', icon: '🏦', route: 'payment-accounts' },
         { label: 'Inventory', icon: '🗄', route: 'inventory' },
         { label: 'Stock Transfers', icon: '⇄', route: 'stock-transfers' },
         { label: 'Daily Sales', icon: '📊', route: 'daily-sales-summaries' },
@@ -559,6 +592,13 @@ export class AppComponent implements OnInit {
         { label: 'Commission Ledger', icon: '☰', route: 'commission-ledgers' },
       ],
     },
+    {
+      title: 'Administration',
+      items: [
+        { label: 'Users', icon: '🔐', route: 'users', adminOnly: true },
+        { label: 'Roles & Permissions', icon: '🛡', route: 'roles', adminOnly: true },
+      ],
+    },
   ];
 
   currentPageLabel = signal('Dashboard');
@@ -576,6 +616,7 @@ export class AppComponent implements OnInit {
     'sales-orders': 'Sales Orders',
     'purchase-orders': 'Purchase Orders',
     'payments': 'Payments',
+    'payment-accounts': 'Payment Accounts',
     'inventory': 'Inventory',
     'stock-transfers': 'Stock Transfers',
     'daily-sales-summaries': 'Daily Sales',
@@ -598,6 +639,8 @@ export class AppComponent implements OnInit {
     'transport-companies': 'Transport Companies',
     'commission-policies': 'Commission Policies',
     'commission-ledgers': 'Commission Ledger',
+    'users': 'Users',
+    'roles': 'Roles & Permissions',
   };
 
   toggleSidebar() {
