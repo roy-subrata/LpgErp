@@ -104,6 +104,9 @@ export class PaymentFormComponent implements OnChanges {
 
   /** When set, only this customer's orders are offered — used from the customer account page. */
   @Input() customerId: string | null = null;
+
+  /** When set, only this supplier's orders are offered and direction defaults to Outbound — used from the supplier account page. */
+  @Input() supplierId: string | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 
@@ -195,7 +198,10 @@ export class PaymentFormComponent implements OnChanges {
       this.salesOrders.set(this.customerId
         ? data.items.filter(so => (so as any).customerId === this.customerId)
         : data.items));
-    this.api.getAll<PurchaseOrder>('purchaseorders', 1, 1000).subscribe(data => this.purchaseOrders.set(data.items));
+    this.api.getAll<PurchaseOrder>('purchaseorders', 1, 1000).subscribe(data =>
+      this.purchaseOrders.set(this.supplierId
+        ? data.items.filter(po => (po as any).supplierId === this.supplierId)
+        : data.items));
   }
 
   private resetForm() {
@@ -203,7 +209,7 @@ export class PaymentFormComponent implements OnChanges {
     this.purchaseOrderId = '';
     this.method = 0;
     this.paymentAccountId = '';
-    this.direction = 0;
+    this.direction = this.supplierId ? 1 : 0;
     this.amount = 0;
     this.paymentDate = '';
     this.reference = '';

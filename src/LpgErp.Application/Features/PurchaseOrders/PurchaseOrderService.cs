@@ -95,7 +95,8 @@ public class PurchaseOrderService : IPurchaseOrderService
 
         var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
         if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
-        ApplyCommission(order, supplier);
+        if (ApplyCommission(order, supplier, request.CommissionCreditApplied) is string commissionError)
+            return Result<PurchaseOrderDto>.Failure(commissionError);
 
         // Anything paid to the supplier up front is recorded with the order in the same save, so
         // the outbound side carries the same "how was this paid" detail as the customer side.
@@ -172,7 +173,8 @@ public class PurchaseOrderService : IPurchaseOrderService
 
         var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
         if (supplier is null) return Result<PurchaseOrderDto>.Failure("Supplier not found.");
-        ApplyCommission(entity, supplier);
+        if (ApplyCommission(entity, supplier, request.CommissionCreditApplied) is string commissionError)
+            return Result<PurchaseOrderDto>.Failure(commissionError);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -207,7 +209,6 @@ public class PurchaseOrderService : IPurchaseOrderService
             return Result<PurchaseOrderDto>.Failure("Only draft orders can be confirmed.");
 
         entity.Status = PurchaseOrderStatus.Confirmed;
-        entity.OrderDate = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(id, cancellationToken);
@@ -531,16 +532,24 @@ public class PurchaseOrderService : IPurchaseOrderService
     }
 
     /// <summary>
-    /// Draws down the supplier's outstanding commission balance against this order's payable
-    /// (goods + transportation), recording the deducted amount on the order.
+    /// Draws down the requested amount of the supplier's commission balance against this order's
+    /// payable (goods + transportation), recording it on the order. The caller picks the amount —
+    /// commission credit is optional and varies per order, not an automatic fixed deduction — so this
+    /// only validates it's within what's actually available rather than silently capping it.
+    /// Returns an error message, or null when the amount is sound.
     /// </summary>
-    private static void ApplyCommission(PurchaseOrder order, Supplier supplier)
+    private static string? ApplyCommission(PurchaseOrder order, Supplier supplier, decimal requestedAmount)
     {
-        var payable = order.TotalAmount + order.TransportationCost;
-        var applied = Math.Min(supplier.CommissionBalance, payable);
-        if (applied <= 0) return;
+        if (requestedAmount == 0) return null;
+        if (requestedAmount < 0) return "Commission credit cannot be negative.";
 
-        order.CommissionApplied = applied;
-        supplier.CommissionBalance -= applied;
+        var payable = order.TotalAmount + order.TransportationCost;
+        var maxApplicable = Math.Min(supplier.CommissionBalance, payable);
+        if (requestedAmount > maxApplicable)
+            return $"Commission credit ({requestedAmount:N2}) exceeds what's available for this order ({maxApplicable:N2}).";
+
+        order.CommissionApplied = requestedAmount;
+        supplier.CommissionBalance -= requestedAmount;
+        return null;
     }
 }

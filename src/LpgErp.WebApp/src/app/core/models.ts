@@ -78,6 +78,9 @@ export interface Supplier {
   brandId: string;
   brandName: string;
   isActive: boolean;
+  /** Accumulated commission credit. Auto-applied against this supplier's next purchase order,
+   *  reducing what's actually payable below the raw order total. */
+  commissionBalance: number;
 }
 
 export interface Cylinder {
@@ -241,6 +244,52 @@ export interface CustomerOrder {
   status: number;
   isCreditSale: boolean;
   netAmount: number;
+  paid: number;
+  outstanding: number;
+  isOverdue: boolean;
+}
+
+export interface SupplierAccountSummary {
+  supplierId: string;
+  supplierName: string;
+  totalPurchased: number;
+  totalPaid: number;
+  outstandingDue: number;
+  /** Commission earned but not yet drawn down against an order. */
+  commissionBalance: number;
+  /** Commission earned in total, lifetime, whether or not it has since been applied. */
+  commissionEarnedLifetime: number;
+}
+
+/** Matches SupplierStatementLineKind: 0 Purchase, 1 Payment. */
+export interface SupplierStatementLine {
+  date: string;
+  kind: number;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  reference: string | null;
+}
+
+export interface SupplierStatement {
+  summary: SupplierAccountSummary;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  closingBalance: number;
+  lines: SupplierStatementLine[];
+}
+
+export interface SupplierOrder {
+  id: string;
+  orderNumber: string;
+  orderDate: string | null;
+  dueDate: string | null;
+  status: number;
+  totalAmount: number;
+  commissionApplied: number;
+  netPayable: number;
   paid: number;
   outstanding: number;
   isOverdue: boolean;

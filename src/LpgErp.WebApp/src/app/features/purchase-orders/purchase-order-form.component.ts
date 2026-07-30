@@ -31,7 +31,7 @@ interface LeakageItem {
       <form (ngSubmit)="submit()">
         <div class="form-group">
           <label for="supplierId">Supplier</label>
-          <select id="supplierId" [(ngModel)]="supplierId" name="supplierId" required>
+          <select id="supplierId" [ngModel]="supplierId" (ngModelChange)="onSupplierChange($event)" name="supplierId" required>
             <option value="">-- Select --</option>
             @for (s of suppliers(); track s.id) {
               <option [value]="s.id">{{ s.name }}</option>
@@ -122,12 +122,40 @@ interface LeakageItem {
         }
         <button type="button" class="btn-add" (click)="addLeakage()">+ Add Leakage</button>
 
+        @if (availableCommissionBalance() > 0) {
+          <div class="form-group">
+            <label for="commissionCreditInput">
+              Commission Credit to Apply
+              <span class="optional">— ৳{{ availableCommissionBalance() | number:'1.0-2' }} available, optional and varies per order</span>
+            </label>
+            <div class="commission-row">
+              <input id="commissionCreditInput" type="number" min="0" [max]="maxCommissionCredit()" step="0.01"
+                     [ngModel]="commissionCreditInput" (ngModelChange)="onCommissionInputChange($event)" name="commissionCreditInput" />
+              <button type="button" class="btn-max" (click)="onCommissionInputChange(maxCommissionCredit())">Use max</button>
+            </div>
+            @if (commissionCreditInput > maxCommissionCredit()) {
+              <small class="field-hint warn">This is more than what's available for this order (৳{{ maxCommissionCredit() | number:'1.0-2' }}) and won't be accepted.</small>
+            }
+          </div>
+        }
+
         @if (!entityId) {
           <h4>Payment <span class="optional">— leave the amount at 0 if nothing was paid yet</span></h4>
           <div class="form-group">
             <label for="paidAmount">Amount Paid</label>
-            <input id="paidAmount" type="number" min="0" step="0.01" [(ngModel)]="paidAmount" name="paidAmount" />
-            <small class="field-hint">Order value is ৳{{ orderTotal() | number:'1.0-2' }} plus transport.</small>
+            <input id="paidAmount" type="number" min="0" [max]="netPayable()" step="0.01" [(ngModel)]="paidAmount" name="paidAmount" />
+            @if (commissionApplied() > 0) {
+              <small class="field-hint">
+                Order ৳{{ orderTotal() | number:'1.0-2' }} + transport ৳{{ transportationCost | number:'1.0-2' }}
+                − ৳{{ commissionApplied() | number:'1.0-2' }} supplier commission credit (applied)
+                = <strong>payable ৳{{ netPayable() | number:'1.0-2' }}</strong>
+              </small>
+            } @else {
+              <small class="field-hint">Payable is ৳{{ netPayable() | number:'1.0-2' }} (order + transport).</small>
+            }
+            @if (paidAmount > netPayable()) {
+              <small class="field-hint warn">This is more than the payable amount and won't be accepted.</small>
+            }
           </div>
           @if (paidAmount > 0) {
             <div class="form-group">
@@ -157,6 +185,7 @@ interface LeakageItem {
           }
         }
 
+        @if (error()) { <p class="error">{{ error() }}</p> }
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Saving...' : entityId ? 'Update' : 'Create' }}</button>
@@ -169,7 +198,7 @@ interface LeakageItem {
     .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 600; font-size: 0.9rem; }
     .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
-    .item-row select, .item-row input { flex: 1; }
+    .item-row select, .item-row input { flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font: inherit; }
     .btn-remove { background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.5rem; cursor: pointer; flex-shrink: 0; }
     .btn-add { background: #28a745; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-bottom: 1rem; }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
@@ -179,6 +208,10 @@ interface LeakageItem {
     h4 { margin: 1rem 0 0.5rem; font-size: 0.95rem; color: #555; }
     h4 .optional { font-weight: 400; color: #6b7280; font-size: 0.8rem; }
     .field-hint { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; }
+    .field-hint.warn { color: #b45309; font-weight: 600; }
+    .error { color: #dc3545; font-size: 0.85rem; margin-top: 0.75rem; }
+    .commission-row { display: flex; gap: 0.5rem; }
+    .btn-max { flex-shrink: 0; background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 0 0.75rem; cursor: pointer; font-size: 0.8rem; }
   `],
 })
 export class PurchaseOrderFormComponent implements OnChanges {
@@ -198,6 +231,13 @@ export class PurchaseOrderFormComponent implements OnChanges {
   dueDate = '';
   items: OrderItem[] = [{ productId: '', orderedQuantity: 0, unitPrice: 0, emptyReturnedQuantity: null }];
   leakages: LeakageItem[] = [];
+  /** How much of the supplier's commission balance to draw down against this order — defaults from
+   *  the supplier's balance but is freely overridable, since it's optional and varies per order. */
+  commissionCreditInput = 0;
+  /** The order's own commission draw at load time (edit mode) — refunded server-side before re-applying,
+   *  so it still counts as "available" as long as the supplier on the order hasn't changed. */
+  private originalCommissionApplied = 0;
+  private originalSupplierId = '';
   paidAmount = 0;
   payMethod = 0;
   payAccountId = '';
@@ -210,11 +250,61 @@ export class PurchaseOrderFormComponent implements OnChanges {
   transportCompanies = signal<TransportCompany[]>([]);
   paymentAccounts = signal<PaymentAccount[]>([]);
   saving = signal(false);
+  error = signal('');
 
   readonly methodOptions = PAYMENT_METHOD_OPTIONS;
 
   orderTotal(): number {
     return this.items.reduce((sum, i) => sum + (Number(i.orderedQuantity) || 0) * (Number(i.unitPrice) || 0), 0);
+  }
+
+  /** Total leakage credit across "Credit on bill" lines — reduces what's payable, same as commission. */
+  private leakageCreditTotal(): number {
+    return this.leakages
+      .filter(l => Number(l.resolution) === 1)
+      .reduce((sum, l) => sum + (Number(l.creditAmount) || 0), 0);
+  }
+
+  /**
+   * The supplier's raw commission balance, plus whatever this order itself is currently drawing
+   * (edit mode only, same supplier) — the backend refunds that amount before re-applying, so it's
+   * still "available" to this order even though it's no longer sitting on the supplier's balance.
+   */
+  availableCommissionBalance(): number {
+    const supplier = this.suppliers().find(s => s.id === this.supplierId);
+    if (!supplier) return 0;
+    const refundable = this.entityId && this.originalSupplierId === this.supplierId ? this.originalCommissionApplied : 0;
+    return (supplier.commissionBalance ?? 0) + refundable;
+  }
+
+  /** The most that can actually be applied to this specific order right now. */
+  maxCommissionCredit(): number {
+    const payable = this.orderTotal() + (Number(this.transportationCost) || 0);
+    return Math.max(0, Math.min(this.availableCommissionBalance(), payable));
+  }
+
+  /**
+   * What the user has entered, defaulting from the supplier's balance but freely overridable —
+   * commission credit is optional and varies per order, not an automatic fixed deduction.
+   * Clamped here only for the payable preview; the raw entered value is validated on submit.
+   */
+  commissionApplied(): number {
+    return Math.min(Math.max(Number(this.commissionCreditInput) || 0, 0), this.maxCommissionCredit());
+  }
+
+  onSupplierChange(supplierId: string) {
+    this.supplierId = supplierId;
+    this.commissionCreditInput = this.maxCommissionCredit();
+  }
+
+  onCommissionInputChange(value: number) {
+    this.commissionCreditInput = Number(value) || 0;
+  }
+
+  netPayable(): number {
+    const payable = this.orderTotal() + (Number(this.transportationCost) || 0)
+      - this.commissionApplied() - this.leakageCreditTotal();
+    return Math.max(0, payable);
   }
 
   /** Only accounts of the selected method — a bKash payment can't come out of a bank account. */
@@ -251,6 +341,9 @@ export class PurchaseOrderFormComponent implements OnChanges {
           this.transportCompanyId = po.transportCompanyId ?? '';
           this.transportationCost = po.transportationCost ?? 0;
           this.dueDate = po.dueDate?.split('T')[0] ?? '';
+          this.commissionCreditInput = po.commissionApplied ?? 0;
+          this.originalCommissionApplied = po.commissionApplied ?? 0;
+          this.originalSupplierId = po.supplierId ?? '';
           if (po.items?.length) {
             this.items = po.items.map((i: any) => ({
               productId: i.productId,
@@ -288,6 +381,23 @@ export class PurchaseOrderFormComponent implements OnChanges {
   }
 
   submit() {
+    this.error.set('');
+
+    // Caught here rather than left to the backend round-trip: the max is the real ceiling for
+    // what this order can draw down right now, same rule the server enforces.
+    if (Number(this.commissionCreditInput) > this.maxCommissionCredit()) {
+      this.error.set(`Commission credit (৳${Number(this.commissionCreditInput).toFixed(2)}) exceeds what's available for this order (৳${this.maxCommissionCredit().toFixed(2)}).`);
+      return;
+    }
+
+    // Caught here rather than left to the backend round-trip: the payable amount already
+    // accounts for the commission credit entered above, so this is the real ceiling, not just
+    // a copy of the server-side check.
+    if (!this.entityId && Number(this.paidAmount) > this.netPayable()) {
+      this.error.set(`Payment (৳${this.paidAmount.toFixed(2)}) exceeds the payable amount (৳${this.netPayable().toFixed(2)}).`);
+      return;
+    }
+
     this.saving.set(true);
     const body = {
       supplierId: this.supplierId,
@@ -297,6 +407,7 @@ export class PurchaseOrderFormComponent implements OnChanges {
       transportCompanyId: this.transportCompanyId,
       transportationCost: this.transportationCost,
       dueDate: this.dueDate,
+      commissionCreditApplied: Number(this.commissionCreditInput) || 0,
       items: this.items.map(i => ({
         productId: i.productId,
         orderedQuantity: i.orderedQuantity,
@@ -335,7 +446,10 @@ export class PurchaseOrderFormComponent implements OnChanges {
         this.saved.emit();
         this.resetForm();
       },
-      error: () => this.saving.set(false),
+      error: (e) => {
+        this.saving.set(false);
+        this.error.set(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Could not save this order.');
+      },
     });
   }
 
@@ -354,9 +468,13 @@ export class PurchaseOrderFormComponent implements OnChanges {
     this.dueDate = '';
     this.items = [{ productId: '', orderedQuantity: 0, unitPrice: 0, emptyReturnedQuantity: null }];
     this.leakages = [];
+    this.commissionCreditInput = 0;
+    this.originalCommissionApplied = 0;
+    this.originalSupplierId = '';
     this.paidAmount = 0;
     this.payMethod = 0;
     this.payAccountId = '';
     this.payReference = '';
+    this.error.set('');
   }
 }

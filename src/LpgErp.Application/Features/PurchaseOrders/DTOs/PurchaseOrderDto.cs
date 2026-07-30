@@ -115,6 +115,13 @@ public class CreatePurchaseOrderRequest : IMapTo<PurchaseOrder>
 
     /// <summary>How the supplier was paid, if anything was paid up front. Null when nothing was paid.</summary>
     public OrderPaymentRequest? Payment { get; set; }
+
+    /// <summary>
+    /// How much of the supplier's commission balance to draw down against this order. Commission
+    /// credit is optional and varies per order, not an automatic fixed deduction — the caller picks
+    /// the amount (defaulting client-side to the most that can be applied, but overridable down to 0).
+    /// </summary>
+    public decimal CommissionCreditApplied { get; set; }
 }
 
 public class CreatePurchaseOrderItemRequest
@@ -142,6 +149,9 @@ public class UpdatePurchaseOrderRequest : IMapTo<PurchaseOrder>
     public string? Notes { get; set; }
     public List<CreatePurchaseOrderItemRequest> Items { get; set; } = [];
     public List<CreateLeakageRequest> Leakages { get; set; } = [];
+
+    /// <summary>How much of the supplier's commission balance to draw down against this order.</summary>
+    public decimal CommissionCreditApplied { get; set; }
 }
 
 public class ReceivePurchaseOrderRequest

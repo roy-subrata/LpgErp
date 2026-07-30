@@ -545,6 +545,7 @@ export class AppComponent {
       items: [
         { label: 'Sales Orders', icon: '📋', route: 'sales-orders' },
         { label: 'Purchase Orders', icon: '📦', route: 'purchase-orders' },
+        { label: 'Goods Receipt', icon: '📥', route: 'goods-receipt' },
         { label: 'Payments', icon: '৳', route: 'payments' },
         { label: 'Payment Accounts', icon: '🏦', route: 'payment-accounts' },
         { label: 'Inventory', icon: '🗄', route: 'inventory' },
@@ -615,6 +616,7 @@ export class AppComponent {
     'routes': 'Routes',
     'sales-orders': 'Sales Orders',
     'purchase-orders': 'Purchase Orders',
+    'goods-receipt': 'Goods Receipt',
     'payments': 'Payments',
     'payment-accounts': 'Payment Accounts',
     'inventory': 'Inventory',

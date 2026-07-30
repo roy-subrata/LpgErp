@@ -3,24 +3,23 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ApiService } from '../../core/api.service';
-import { CustomerStatement, CustomerOrder, Customer } from '../../core/models';
+import { SupplierStatement, SupplierOrder, Supplier } from '../../core/models';
 import { PaymentFormComponent } from '../payments/payment-form.component';
 
 /**
- * Everything about one customer in one place — what they owe, what they have paid, the cylinders
- * they hold and the deposit held against them. Replaces jumping between the credit, gas ledger
- * and cylinder ledger screens and re-picking the customer in each.
+ * Everything about one supplier in one place — what we owe them, what we've paid, and their
+ * commission activity. Mirrors the customer account page.
  */
 @Component({
-  selector: 'app-customer-account',
+  selector: 'app-supplier-account',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PaymentFormComponent],
   template: `
     <div class="page-header no-print">
       <div>
-        <a routerLink="/customers" class="back-link">← Customers</a>
-        <h1 class="page-title">{{ customer()?.name || 'Customer' }}</h1>
-        <span class="page-sub">{{ customer()?.code }}{{ customer()?.phone ? ' · ' + customer()?.phone : '' }}</span>
+        <a routerLink="/suppliers" class="back-link">← Suppliers</a>
+        <h1 class="page-title">{{ supplier()?.name || 'Supplier' }}</h1>
+        <span class="page-sub">{{ supplier()?.code }}{{ supplier()?.phone ? ' · ' + supplier()?.phone : '' }}</span>
       </div>
       <div class="header-actions">
         <button class="btn-secondary-sm" (click)="print()">🖨 Print</button>
@@ -29,7 +28,7 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
     </div>
 
     <div class="print-only print-head">
-      <h2>{{ customer()?.name }} — Account Statement</h2>
+      <h2>{{ supplier()?.name }} — Account Statement</h2>
       <span>{{ rangeLabel() }} · printed {{ today | date:'dd MMM yyyy' }}</span>
     </div>
 
@@ -45,35 +44,30 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
             <span class="kpi-icon" style="background:#fef2f2;color:#dc2626">৳</span>
           </div>
           <div class="kpi-value" [class.danger]="s.summary.outstandingDue > 0">৳ {{ s.summary.outstandingDue | number:'1.0-0' }}</div>
-          @if (s.summary.creditLimit > 0) {
-            <span class="kpi-foot" [class.danger]="s.summary.isOverCredit">
-              {{ s.summary.creditUtilization | number:'1.0-0' }}% of ৳{{ s.summary.creditLimit | number:'1.0-0' }} limit
-              {{ s.summary.isOverCredit ? '· over limit' : '' }}
-            </span>
-          }
+          <span class="kpi-foot">what we owe this supplier</span>
         </div>
         <div class="kpi-card">
           <div class="kpi-top">
-            <span class="kpi-label">Deposit Held</span>
-            <span class="kpi-icon" style="background:#f0fdf4;color:#15803d">🔒</span>
+            <span class="kpi-label">Commission Balance</span>
+            <span class="kpi-icon" style="background:#faf5ff;color:#7e22ce">%</span>
           </div>
-          <div class="kpi-value">৳ {{ s.summary.depositHeld | number:'1.0-0' }}</div>
-          <span class="kpi-foot">refundable — not revenue</span>
+          <div class="kpi-value">৳ {{ s.summary.commissionBalance | number:'1.0-0' }}</div>
+          <span class="kpi-foot">available to apply to a future order</span>
         </div>
         <div class="kpi-card">
           <div class="kpi-top">
-            <span class="kpi-label">Cylinders Held</span>
-            <span class="kpi-icon" style="background:#eff6ff;color:#1d4ed8">🛢</span>
+            <span class="kpi-label">Commission Earned</span>
+            <span class="kpi-icon" style="background:#fff7ed;color:#c2410c">Σ</span>
           </div>
-          <div class="kpi-value">{{ s.summary.cylindersHeld }}</div>
-          <span class="kpi-foot">not yet returned</span>
+          <div class="kpi-value">৳ {{ s.summary.commissionEarnedLifetime | number:'1.0-0' }}</div>
+          <span class="kpi-foot">lifetime, applied or not</span>
         </div>
         <div class="kpi-card">
           <div class="kpi-top">
-            <span class="kpi-label">Total Billed</span>
-            <span class="kpi-icon" style="background:#fff7ed;color:#ea580c">▤</span>
+            <span class="kpi-label">Total Purchased</span>
+            <span class="kpi-icon" style="background:#eff6ff;color:#1d4ed8">▤</span>
           </div>
-          <div class="kpi-value">৳ {{ s.summary.totalBilled | number:'1.0-0' }}</div>
+          <div class="kpi-value">৳ {{ s.summary.totalPurchased | number:'1.0-0' }}</div>
           <span class="kpi-foot">paid ৳{{ s.summary.totalPaid | number:'1.0-0' }}</span>
         </div>
       </div>
@@ -129,11 +123,6 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
                       </td>
                       <td class="right">
                         @if (line.debit) { <span class="money-text">৳ {{ line.debit | number:'1.0-0' }}</span> }
-                        @else if (isDeposit(line.kind)) {
-                          <span class="badge" style="background:#f0fdf4;color:#15803d">
-                            {{ line.kind === 2 ? '+' : '−' }}৳{{ line.amount | number:'1.0-0' }} deposit
-                          </span>
-                        }
                       </td>
                       <td class="right">
                         @if (line.credit) { <span class="money-text credit">৳ {{ line.credit | number:'1.0-0' }}</span> }
@@ -147,35 +136,6 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
                     <td colspan="4">Closing balance — amount due</td>
                     <td class="right"><span class="money-text" [class.danger]="s.closingBalance > 0">৳ {{ s.closingBalance | number:'1.0-0' }}</span></td>
                   </tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="foot-note">
-              Cylinder deposits move money but are refundable, so they are shown separately and left out
-              of the balance owed on goods.
-            </p>
-          }
-
-          @case ('cylinders') {
-            <div class="table-scroll">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th style="width:40%">Brand</th>
-                    <th style="width:40%">Size</th>
-                    <th style="width:20%" class="right">Held</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (c of s.cylinders; track $index) {
-                    <tr class="data-row">
-                      <td><span class="main-text">{{ c.brandName }}</span></td>
-                      <td><span class="muted-text">{{ c.cylinderSizeName }}</span></td>
-                      <td class="right"><span class="num-text">{{ c.held }}</span></td>
-                    </tr>
-                  } @empty {
-                    <tr><td colspan="3" class="empty-row">This customer is not holding any cylinders.</td></tr>
-                  }
                 </tbody>
               </table>
             </div>
@@ -198,12 +158,7 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
                 <tbody>
                   @for (o of orders(); track o.id) {
                     <tr class="data-row">
-                      <td>
-                        <div class="main-cell">
-                          <span class="mono-text">{{ o.orderNumber }}</span>
-                          @if (o.isCreditSale) { <span class="sub-text">credit</span> }
-                        </div>
-                      </td>
+                      <td><span class="mono-text">{{ o.orderNumber }}</span></td>
                       <td><span class="muted-text">{{ o.orderDate | date:'dd MMM yyyy' }}</span></td>
                       <td>
                         @if (o.dueDate) {
@@ -215,7 +170,7 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
                           {{ statusBadge[o.status]?.[0] }}
                         </span>
                       </td>
-                      <td class="right"><span class="money-text">৳ {{ o.netAmount | number:'1.0-0' }}</span></td>
+                      <td class="right"><span class="money-text">৳ {{ o.netPayable | number:'1.0-0' }}</span></td>
                       <td class="right"><span class="money-text credit">৳ {{ o.paid | number:'1.0-0' }}</span></td>
                       <td class="right">
                         <span class="money-text" [class.danger]="o.outstanding > 0">৳ {{ o.outstanding | number:'1.0-0' }}</span>
@@ -223,7 +178,7 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
                       </td>
                     </tr>
                   } @empty {
-                    <tr><td colspan="7" class="empty-row">No orders for this customer.</td></tr>
+                    <tr><td colspan="7" class="empty-row">No purchase orders for this supplier.</td></tr>
                   }
                 </tbody>
               </table>
@@ -236,7 +191,7 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
     <app-payment-form
       [open]="paymentOpen()"
       [entityId]="null"
-      [customerId]="customerId"
+      [supplierId]="supplierId"
       (close)="paymentOpen.set(false)"
       (saved)="onPaymentSaved()" />
   `,
@@ -276,7 +231,6 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
     .main-text { font-weight: 600; color: var(--text-primary); }
     .sub-text { font-size: 12px; color: var(--text-muted); }
     .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
-    .num-text { font-weight: 600; }
     .empty-row { text-align: center; padding: 40px 14px !important; color: var(--text-muted); }
 
     .back-link { font-size: 12px; color: var(--text-muted); text-decoration: none; }
@@ -299,7 +253,6 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
     .closing-row td { border-top: 2px solid var(--border, #e7e9ee); }
 
     .badge.overdue { background: #fef2f2; color: #b91c1c; margin-left: 6px; }
-    .foot-note { margin: 0; padding: 10px 16px; font-size: 11px; color: #6b7280; border-top: 1px solid var(--border-row, #f1f3f6); }
 
     .print-only { display: none; }
     @media print {
@@ -311,35 +264,36 @@ import { PaymentFormComponent } from '../payments/payment-form.component';
     }
   `],
 })
-export class CustomerAccountComponent implements OnInit {
+export class SupplierAccountComponent implements OnInit {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
 
-  customerId = '';
+  supplierId = '';
   from = '';
   to = '';
   readonly today = new Date();
 
-  customer = signal<Customer | null>(null);
-  statement = signal<CustomerStatement | null>(null);
-  orders = signal<CustomerOrder[]>([]);
+  supplier = signal<Supplier | null>(null);
+  statement = signal<SupplierStatement | null>(null);
+  orders = signal<SupplierOrder[]>([]);
   loading = signal(true);
   error = signal('');
-  tab = signal<'statement' | 'cylinders' | 'orders'>('statement');
+  tab = signal<'statement' | 'orders'>('statement');
   paymentOpen = signal(false);
 
   readonly tabs = [
     { key: 'statement' as const, label: 'Statement' },
-    { key: 'cylinders' as const, label: 'Cylinders' },
     { key: 'orders' as const, label: 'Orders' },
   ];
 
-  /** [label, background, text] — matches SalesOrderStatus. */
+  /** [label, background, text] — matches PurchaseOrderStatus. */
   readonly statusBadge: Record<number, string[]> = {
     0: ['Draft', '#f4f5f7', '#6b7280'],
-    1: ['Confirmed', '#eff6ff', '#1d4ed8'],
-    2: ['Delivered', '#f0fdf4', '#15803d'],
-    3: ['Cancelled', '#fef2f2', '#b91c1c'],
+    1: ['Confirmed', '#dbeafe', '#1d4ed8'],
+    2: ['In Transit', '#e0e7ff', '#4338ca'],
+    3: ['Partially Received', '#fef3c7', '#92400e'],
+    4: ['Received', '#dcfce7', '#166534'],
+    5: ['Cancelled', '#fee2e2', '#991b1b'],
   };
 
   rangeLabel = computed(() => {
@@ -348,17 +302,17 @@ export class CustomerAccountComponent implements OnInit {
   });
 
   ngOnInit() {
-    this.customerId = this.route.snapshot.paramMap.get('id') ?? '';
-    if (!this.customerId) {
-      this.error.set('No customer specified.');
+    this.supplierId = this.route.snapshot.paramMap.get('id') ?? '';
+    if (!this.supplierId) {
+      this.error.set('No supplier specified.');
       this.loading.set(false);
       return;
     }
 
-    this.api.getById<Customer>('customers', this.customerId)
-      .subscribe({ next: c => this.customer.set(c), error: () => {} });
+    this.api.getById<Supplier>('suppliers', this.supplierId)
+      .subscribe({ next: s => this.supplier.set(s), error: () => {} });
 
-    this.api.get<CustomerOrder[]>(`customeraccount/customer/${this.customerId}/orders`)
+    this.api.get<SupplierOrder[]>(`supplieraccount/supplier/${this.supplierId}/orders`)
       .subscribe({ next: o => this.orders.set(o), error: () => {} });
 
     this.reload();
@@ -371,7 +325,7 @@ export class CustomerAccountComponent implements OnInit {
     if (this.to) params.push(`to=${this.to}T23:59:59`);
     const qs = params.length ? `?${params.join('&')}` : '';
 
-    this.api.get<CustomerStatement>(`customeraccount/customer/${this.customerId}/statement${qs}`)
+    this.api.get<SupplierStatement>(`supplieraccount/supplier/${this.supplierId}/statement${qs}`)
       .subscribe({
         next: s => {
           this.statement.set(s);
@@ -390,14 +344,9 @@ export class CustomerAccountComponent implements OnInit {
     this.reload();
   }
 
-  /** Deposit lines carry cash but sit outside the goods balance. */
-  isDeposit(kind: number): boolean {
-    return kind === 2 || kind === 3;
-  }
-
   onPaymentSaved() {
     this.paymentOpen.set(false);
-    this.api.get<CustomerOrder[]>(`customeraccount/customer/${this.customerId}/orders`)
+    this.api.get<SupplierOrder[]>(`supplieraccount/supplier/${this.supplierId}/orders`)
       .subscribe({ next: o => this.orders.set(o), error: () => {} });
     this.reload();
   }

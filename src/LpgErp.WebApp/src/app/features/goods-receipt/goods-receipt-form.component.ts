@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, Output, inject, signal, SimpleChanges, OnChanges } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DialogComponent } from '../../shared/dialog.component';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 
 interface ReceiveLine {
@@ -28,17 +28,34 @@ interface LeakageLine {
   settledQuantity: number;
 }
 
+/**
+ * The receiving side of a purchase order, on its own page — how many of each item actually
+ * arrived, whether any are damaged or short, how many empty cylinders went back for refills, and
+ * how any leaking cylinders on this order were settled. Posts to the same endpoint the old
+ * receive dialog used; only the presentation changed, from a modal to a full page.
+ */
 @Component({
-  selector: 'app-purchase-order-receive',
+  selector: 'app-goods-receipt-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogComponent],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
-    <app-dialog [open]="open" [title]="'Receive Goods — ' + orderNumber()" (close)="onClose()">
-      @if (lines().length === 0) {
-        <p class="empty">This order has no items to receive.</p>
-      } @else {
+    <div class="page-header">
+      <div>
+        <a routerLink="/goods-receipt" class="back-link">← Goods Receipt</a>
+        <h1 class="page-title">Receive — {{ orderNumber() }}</h1>
+        <span class="page-sub">{{ supplierName() }}{{ warehouseName() ? ' · ' + warehouseName() : '' }}</span>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="state-note">Loading…</div>
+    } @else if (notFound()) {
+      <div class="state-note error">This order could not be found, or has already been fully received.</div>
+    } @else {
+      <div class="form-card">
         <p class="hint">Enter the quantities physically received, plus any damaged or missing (short) units. Only good (received − damaged) units are added to warehouse stock.</p>
         <p class="hint">Leave <strong>Empties Out</strong> blank to send one empty cylinder per refill received — the normal swap. Enter a smaller number if you sent fewer; the rest stays owed to the company.</p>
+
         <div class="table-wrap">
           <table class="receive-table">
             <thead>
@@ -76,6 +93,7 @@ interface LeakageLine {
             </tbody>
           </table>
         </div>
+
         @if (leakages().length > 0) {
           <h4 class="section">Leaking cylinders returned</h4>
           <div class="table-wrap">
@@ -103,54 +121,73 @@ interface LeakageLine {
             </table>
           </div>
         }
+
         @if (error()) { <p class="error">{{ error() }}</p> }
+
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" (click)="onClose()">Cancel</button>
+          <button type="button" class="btn btn-secondary" (click)="cancel()">Cancel</button>
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="submit()">
             {{ saving() ? 'Receiving...' : 'Confirm Receipt' }}
           </button>
         </div>
-      }
-    </app-dialog>
+      </div>
+    }
   `,
   styles: [`
+    .page-header { margin-bottom: 20px; }
+    .back-link { font-size: 12px; color: var(--text-muted, #6b7280); text-decoration: none; }
+    .back-link:hover { text-decoration: underline; }
+    .page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); margin: 4px 0 0; }
+    .page-sub { font-size: 12px; color: var(--text-muted); }
+    .state-note { padding: 24px; color: #6b7280; }
+    .state-note.error { color: #b91c1c; }
+
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 20px; }
     .hint { font-size: 0.85rem; color: #6b7280; margin: 0 0 1rem; }
-    .empty { color: #6b7280; }
     .table-wrap { overflow-x: auto; }
     .receive-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .receive-table th, .receive-table td { padding: 0.4rem 0.5rem; text-align: center; border-bottom: 1px solid #eee; }
+    .receive-table th, .receive-table td { padding: 0.5rem 0.6rem; text-align: center; border-bottom: 1px solid #eee; }
     .receive-table th.left, .receive-table td.left { text-align: left; }
-    .receive-table input { width: 68px; padding: 0.35rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-    .error { color: #dc3545; font-size: 0.85rem; margin-top: 0.75rem; }
+    .receive-table input { width: 74px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     .na { color: #9ca3af; }
-    .section { margin: 1.25rem 0 0.5rem; font-size: 0.9rem; color: #555; }
+    .section { margin: 1.5rem 0 0.5rem; font-size: 0.95rem; color: #555; }
+    .error { color: #dc3545; font-size: 0.85rem; margin-top: 0.75rem; }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
-    .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
+    .btn { padding: 0.55rem 1.1rem; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; font-size: 0.9rem; }
     .btn-primary { background: #1a1a2e; color: white; border-color: #1a1a2e; }
     .btn-primary:disabled { opacity: 0.6; cursor: default; }
     .btn-secondary { background: white; color: #333; }
   `],
 })
-export class PurchaseOrderReceiveComponent implements OnChanges {
+export class GoodsReceiptFormComponent implements OnInit {
   private api = inject(ApiService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
-  @Input() open = false;
-  @Input() entityId: string | null = null;
-  @Output() close = new EventEmitter<void>();
-  @Output() received = new EventEmitter<void>();
-
+  orderId = '';
   orderNumber = signal('');
+  supplierName = signal('');
+  warehouseName = signal('');
   lines = signal<ReceiveLine[]>([]);
   leakages = signal<LeakageLine[]>([]);
+  loading = signal(true);
+  notFound = signal(false);
   saving = signal(false);
   error = signal('');
 
-  ngOnChanges(changes: SimpleChanges) {
-    if (changes['open'] && this.open && this.entityId) {
-      this.error.set('');
-      this.saving.set(false);
-      this.api.getById<any>('purchaseorders', this.entityId).subscribe(po => {
+  ngOnInit() {
+    this.orderId = this.route.snapshot.paramMap.get('id') ?? '';
+    if (!this.orderId) {
+      this.notFound.set(true);
+      this.loading.set(false);
+      return;
+    }
+
+    this.api.getById<any>('purchaseorders', this.orderId).subscribe({
+      next: po => {
         this.orderNumber.set(po.orderNumber ?? '');
+        this.supplierName.set(po.supplierName ?? '');
+        this.warehouseName.set(po.warehouseName ?? '');
         this.lines.set((po.items ?? []).map((i: any) => ({
           productId: i.productId,
           productName: i.productName ?? i.productId,
@@ -172,8 +209,13 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
           creditAmount: l.creditAmount ?? 0,
           settledQuantity: 0,
         })));
-      });
-    }
+        this.loading.set(false);
+      },
+      error: () => {
+        this.notFound.set(true);
+        this.loading.set(false);
+      },
+    });
   }
 
   outstanding(line: ReceiveLine): number {
@@ -217,19 +259,19 @@ export class PurchaseOrderReceiveComponent implements OnChanges {
 
     this.saving.set(true);
     this.error.set('');
-    this.api.post(`purchaseorders/${this.entityId}/receive`, { items, leakages }).subscribe({
+    this.api.post(`purchaseorders/${this.orderId}/receive`, { items, leakages }).subscribe({
       next: () => {
         this.saving.set(false);
-        this.received.emit();
+        this.router.navigate(['/goods-receipt']);
       },
       error: (e) => {
         this.saving.set(false);
-        this.error.set(e?.error?.message ?? 'Failed to record receipt.');
+        this.error.set(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Failed to record receipt.');
       },
     });
   }
 
-  onClose() {
-    this.close.emit();
+  cancel() {
+    this.router.navigate(['/goods-receipt']);
   }
 }

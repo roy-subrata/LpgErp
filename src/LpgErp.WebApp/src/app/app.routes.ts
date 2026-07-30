@@ -105,6 +105,12 @@ export const routes: Routes = [
       import('./features/suppliers/supplier-list.component').then(m => m.SupplierListComponent),
   },
   {
+    path: 'suppliers/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/supplier-account/supplier-account.component').then(m => m.SupplierAccountComponent),
+  },
+  {
     path: 'transport-companies',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -145,6 +151,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/purchase-orders/purchase-order-list.component').then(m => m.PurchaseOrderListComponent),
+  },
+  {
+    path: 'goods-receipt',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/goods-receipt/goods-receipt-list.component').then(m => m.GoodsReceiptListComponent),
+  },
+  {
+    path: 'goods-receipt/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/goods-receipt/goods-receipt-form.component').then(m => m.GoodsReceiptFormComponent),
   },
   {
     path: 'payments',

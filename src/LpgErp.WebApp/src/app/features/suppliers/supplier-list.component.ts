@@ -1,14 +1,25 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { EntityListComponent, EntityConfig } from '../../shared/entity-list.component';
+import { Router } from '@angular/router';
+import { EntityListComponent, EntityConfig, RowAction } from '../../shared/entity-list.component';
 
 @Component({
   selector: 'app-supplier-list',
   standalone: true,
   imports: [CommonModule, EntityListComponent],
-  template: `<app-entity-list [config]="config" [searchFields]="searchFields" />`,
+  template: `<app-entity-list [config]="config" [searchFields]="searchFields" [rowActions]="rowActions" (rowAction)="onRowAction($event)" />`,
 })
 export class SupplierListComponent {
+  private router = inject(Router);
+
+  readonly rowActions: RowAction[] = [
+    { key: 'account', icon: '📒', title: 'View account', show: () => true },
+  ];
+
+  onRowAction(e: { key: string; item: any }) {
+    if (e.key === 'account') this.router.navigate(['/suppliers', e.item.id]);
+  }
+
   readonly config: EntityConfig = {
     endpoint: 'suppliers',
     title: 'Suppliers',

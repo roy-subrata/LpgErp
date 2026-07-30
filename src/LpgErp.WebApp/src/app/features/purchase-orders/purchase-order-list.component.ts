@@ -1,14 +1,14 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { EntityListComponent, EntityConfig, RowAction } from '../../shared/entity-list.component';
 import { ApiService } from '../../core/api.service';
 import { PurchaseOrderFormComponent } from './purchase-order-form.component';
-import { PurchaseOrderReceiveComponent } from './purchase-order-receive.component';
 
 @Component({
   selector: 'app-purchase-order-list',
   standalone: true,
-  imports: [CommonModule, EntityListComponent, PurchaseOrderFormComponent, PurchaseOrderReceiveComponent],
+  imports: [CommonModule, EntityListComponent, PurchaseOrderFormComponent],
   template: `
     <app-entity-list
       [config]="config"
@@ -26,25 +26,19 @@ import { PurchaseOrderReceiveComponent } from './purchase-order-receive.componen
       (close)="formOpen.set(false)"
       (saved)="onSaved()"
     />
-    <app-purchase-order-receive
-      [open]="receiveOpen()"
-      [entityId]="receiveId()"
-      (close)="receiveOpen.set(false)"
-      (received)="onReceived()"
-    />
   `,
 })
 export class PurchaseOrderListComponent {
   private api = inject(ApiService);
+  private router = inject(Router);
 
   formOpen = signal(false);
   editId = signal<string | null>(null);
-  receiveOpen = signal(false);
-  receiveId = signal<string | null>(null);
   reloadTick = signal(0);
 
   // Status: 0 Draft, 1 Confirmed, 2 InTransit, 3 PartiallyReceived, 4 Received, 5 Cancelled.
-  // "Confirm" moves a draft on; "Receive" only makes sense once it has been.
+  // "Confirm" moves a draft on; "Receive" opens the dedicated Goods Receipt page — receiving is
+  // its own feature (see features/goods-receipt), not a dialog layered on this list.
   readonly rowActions: RowAction[] = [
     {
       key: 'confirm',
@@ -69,8 +63,7 @@ export class PurchaseOrderListComponent {
     if (e.key === 'confirm') {
       this.onConfirm(e.item);
     } else if (e.key === 'receive') {
-      this.receiveId.set(e.item.id);
-      this.receiveOpen.set(true);
+      this.router.navigate(['/goods-receipt', e.item.id]);
     }
   }
 
@@ -80,11 +73,6 @@ export class PurchaseOrderListComponent {
       next: () => this.reloadTick.update(v => v + 1),
       error: (e) => alert(e?.error?.errors?.[0] ?? e?.error?.message ?? 'Could not confirm this order.'),
     });
-  }
-
-  onReceived() {
-    this.receiveOpen.set(false);
-    this.reloadTick.update(v => v + 1);
   }
 
   onSaved() {

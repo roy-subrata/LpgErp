@@ -28,6 +28,7 @@ using LpgErp.Application.Features.AdvanceRefills;
 using LpgErp.Application.Features.CustomerCylinderLedger;
 using LpgErp.Application.Features.CustomerGasLedger;
 using LpgErp.Application.Features.CustomerAccount;
+using LpgErp.Application.Features.SupplierAccount;
 using LpgErp.Application.Features.CustomerCredit;
 using LpgErp.Application.Features.TransportCompanies;
 using LpgErp.Application.Features.VehicleClosings;
@@ -74,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerCylinderLedgerService, CustomerCylinderLedgerService>();
         services.AddScoped<ICustomerGasLedgerService, CustomerGasLedgerService>();
         services.AddScoped<ICustomerAccountService, CustomerAccountService>();
+        services.AddScoped<ISupplierAccountService, SupplierAccountService>();
         services.AddScoped<ICustomerCreditService, CustomerCreditService>();
         services.AddScoped<ITransportCompanyService, TransportCompanyService>();
         services.AddScoped<IVehicleClosingService, VehicleClosingService>();
